@@ -42,9 +42,9 @@ fn main() {
     let vertices: [GLfloat; 9] = [-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.7, 0.0];
 
     let vb = VertexBuffer::new().unwrap();
-    unsafe {
-        vb.bind();
-    }
+
+    vb.bind();
+
     unsafe {
         gl::BufferData(
             gl::ARRAY_BUFFER,
@@ -128,28 +128,56 @@ fn main() {
     }
 }
 
-struct VertexBuffer {
-    id: GLuint,
-}
+pub struct VertexBufferID(NonZero<GLuint>);
 
-impl VertexBuffer {
-    fn new() -> Option<VertexBuffer> {
-        let mut id: GLuint = 0;
-        unsafe {
+impl VertexBufferID {
+    pub fn new() -> Option<Self> {
+        NonZero::new(unsafe {
+            let mut id: GLuint = 0;
             gl::GenBuffers(1, &mut id);
-        }
-        Some(VertexBuffer { id })
+            id
+        }).map(VertexBufferID)
     }
 
-    unsafe fn bind(&self) -> () {
-        gl::BindBuffer(gl::ARRAY_BUFFER, self.id);
+    pub unsafe fn get(&self) -> NonZero<GLuint> {
+        self.0
+    }
+}
+
+impl Drop for VertexBufferID {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.get().get());
+        }
+    }
+}
+
+pub struct VertexBuffer(VertexBufferID);
+
+impl VertexBuffer {
+    fn new() -> Result<Self, String> {
+        let id = VertexBufferID::new().ok_or_else(
+            || String::from("Failed to acquire buffer id.")
+        )?;
+        Ok(VertexBuffer(id))
+    }
+
+    unsafe fn id(&self) -> NonZero<GLuint> {
+        (self.0).get()
+    }
+
+    fn bind(&self) -> () {
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.id().get());
+            // FIXME: Check for errors.
+        }
     }
 }
 
 impl Drop for VertexBuffer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteBuffers(1, &self.id);
+            gl::DeleteBuffers(1, &self.id().get());
         }
     }
 }
