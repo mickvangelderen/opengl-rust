@@ -64,8 +64,8 @@ fn main() {
 
     let program = Program::new().unwrap();
 
-    program.attach_shader(&vertex_shader);
-    program.attach_shader(&fragment_shader);
+    program.attach(&vertex_shader);
+    program.attach(&fragment_shader);
 
     let mut running = true;
     let mut frame_count = 0;
@@ -225,7 +225,7 @@ impl Program {
         (self.0).get()
     }
 
-    pub fn attach_shader<T: Shader>(&self, shader: &T) {
+    pub fn attach<T: Shader>(&self, shader: &T) {
         unsafe {
             gl::AttachShader(self.id().get(), shader.id().get());
         }
