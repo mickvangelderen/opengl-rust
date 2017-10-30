@@ -1,0 +1,8 @@
+[package]
+name = "opengl-experiment"
+version = "0.1.0"
+authors = ["Mick van Gelderen <mickvangelderen@gmail.com>"]
+
+[dependencies]
+glutin = "0.10.0"
+gl = "0.6.3"
