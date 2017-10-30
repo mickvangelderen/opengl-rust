@@ -15,6 +15,7 @@ use gl::types::*;
 use glw::Shader;
 use std::time;
 use core::nonzero::NonZero;
+use std::ptr;
 
 fn main() {
     let mut events_loop = glutin::EventsLoop::new();
@@ -66,6 +67,7 @@ fn main() {
 
     program.attach(&vertex_shader);
     program.attach(&fragment_shader);
+    program.link().unwrap();
 
     let mut running = true;
     let mut frame_count = 0;
@@ -229,5 +231,44 @@ impl Program {
         unsafe {
             gl::AttachShader(self.id().get(), shader.id().get());
         }
+    }
+
+    pub fn link(&self) -> Result<(), String> {
+        unsafe {
+            gl::LinkProgram(self.id().get());
+        }
+
+        let mut status = gl::FALSE as GLint;
+
+        unsafe {
+            gl::GetProgramiv(self.id().get(), gl::LINK_STATUS, &mut status);
+        }
+
+        if status != (gl::TRUE as GLint) {
+            let mut len = 0;
+
+            unsafe {
+                gl::GetProgramiv(self.id().get(), gl::INFO_LOG_LENGTH, &mut len);
+            }
+
+            let mut buf = Vec::with_capacity(len as usize);
+
+            unsafe {
+                buf.set_len((len as usize) - 1);
+            }
+
+            unsafe {
+                gl::GetShaderInfoLog(
+                    self.id().get(),
+                    len,
+                    ptr::null_mut(),
+                    buf.as_mut_ptr() as *mut GLchar
+                );
+            }
+
+            return Err(String::from_utf8(buf).expect("Program info log is not utf8"))
+        }
+
+        Ok(())
     }
 }
