@@ -84,7 +84,6 @@ fn main() {
             last_fps_end = now;
             println!("FPS: {}", frame_count);
             frame_count = 0;
-            println!("{:?}", now.duration_since(last_frame_end).as_secs());
         }
 
         // Update delta_frame.
