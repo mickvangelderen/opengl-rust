@@ -17,6 +17,12 @@ use std::time;
 use std::ptr;
 use std::mem;
 
+macro_rules! c_str {
+    ($s:expr) => (
+        concat!($s, "\0") as *const str as *const u8 as *const GLchar
+    );
+}
+
 fn main() {
     let mut events_loop = glutin::EventsLoop::new();
 
@@ -37,7 +43,7 @@ fn main() {
 
     unsafe {
         gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
-        gl::ClearColor(0.0, 1.0, 0.0, 1.0);
+        gl::ClearColor(0.5, 0.5, 0.5, 1.0);
     }
 
     let program = {
@@ -57,18 +63,53 @@ fn main() {
         program
     };
 
-    let vertices: [GLfloat; 12] = [
+    let vertices: [GLfloat; 32] = [
         -0.5,
         0.5,
         0.0,
+
+        1.0,
+        0.0,
+        0.0,
+
+        // Top left
+        0.0,
+        1.0,
+
         0.5,
         0.5,
         0.0,
+
+        0.0,
+        1.0,
+        0.0,
+
+        // Top right
+        1.0,
+        1.0,
+
         -0.5,
         -0.5,
         0.0,
+
+        0.0,
+        0.0,
+        1.0,
+
+        // Bottom left
+        0.0,
+        0.0,
+
         0.5,
         -0.5,
+        0.0,
+
+        0.5,
+        0.5,
+        0.5,
+
+        // Bottom right
+        1.0,
         0.0,
     ];
 
@@ -77,6 +118,19 @@ fn main() {
     let va = glw::VertexArray::new().unwrap();
     let vb = glw::VertexBuffer::new().unwrap();
     let ve = glw::VertexBuffer::new().unwrap();
+
+    let tex_data: [u8; 12] = [
+        // Bottom left.
+        0, 0, 0,
+        // Bottom right.
+        255, 255, 255,
+        // Top left.
+        255, 0, 0,
+        // Top right.
+        0, 255, 0,
+    ];
+
+    let stride = mem::size_of::<[GLfloat; 8]>() as GLint;
 
     unsafe {
         gl::BindVertexArray(va.id().as_uint());
@@ -104,17 +158,59 @@ fn main() {
             3,
             gl::FLOAT,
             gl::FALSE,
-            mem::size_of::<[GLfloat; 3]>() as GLint,
+            stride,
             ptr::null(),
         );
 
         gl::EnableVertexAttribArray(0);
+
+        gl::VertexAttribPointer(
+            1,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            stride,
+            mem::size_of::<[GLfloat; 3]>() as *const GLvoid,
+        );
+
+        gl::EnableVertexAttribArray(1);
+
+        gl::VertexAttribPointer(
+            2,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            stride,
+            mem::size_of::<[GLfloat; 6]>() as *const GLvoid,
+        );
+
+        gl::EnableVertexAttribArray(2);
 
         // Unnecessary.
         gl::BindBuffer(gl::ARRAY_BUFFER, 0 as GLuint);
 
         // Unnecessary.
         gl::BindVertexArray(0 as GLuint);
+    }
+
+    let mut tex_id: GLuint = 0;
+    unsafe {
+        gl::GenTextures(1, &mut tex_id);
+        gl::BindTexture(gl::TEXTURE_2D, tex_id);
+
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+
+        gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, 2, 2, 0, gl::RGB, gl::UNSIGNED_BYTE, tex_data.as_ptr() as *const GLvoid);
+        gl::GenerateMipmap(gl::TEXTURE_2D);
+    }
+
+    unsafe {
+        gl::UseProgram(program.id().as_uint());
+        let tex_unif = gl::GetUniformLocation(program.id().as_uint(), c_str!("tex_color"));
+        gl::Uniform1i(tex_unif, 0);
     }
 
     let mut running = true;
@@ -172,9 +268,10 @@ fn main() {
 
         // Render.
         unsafe {
-            gl::ClearColor(0.0, green, 0.0, 1.0);
-
             gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
 
             gl::UseProgram(program.id().as_uint());
 
