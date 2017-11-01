@@ -4,7 +4,6 @@ extern crate gl;
 extern crate glutin;
 extern crate core;
 
-
 mod glw;
 
 use glutin::GlContext;
