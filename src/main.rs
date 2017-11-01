@@ -55,19 +55,22 @@ fn main() {
         );
     }
 
-    let vertex_src = file_to_cstring("assets/vertex-shader.glsl").unwrap();
-    let vertex_shader =
-        glw::VertexShader::new(vertex_src).expect("Failed to compile vertex shader.");
+    let program = {
+        let vertex_src = file_to_cstring("assets/vertex-shader.glsl").unwrap();
+        let vertex_shader =
+            glw::VertexShader::new(vertex_src).expect("Failed to compile vertex shader.");
 
-    let fragment_src = file_to_cstring("assets/fragment-shader.glsl").unwrap();
-    let fragment_shader =
-        glw::VertexShader::new(fragment_src).expect("Failed to compile fragment shader.");
+        let fragment_src = file_to_cstring("assets/fragment-shader.glsl").unwrap();
+        let fragment_shader =
+            glw::VertexShader::new(fragment_src).expect("Failed to compile fragment shader.");
 
-    let program = Program::new().unwrap();
+        let program = Program::new().unwrap();
 
-    program.attach(&vertex_shader);
-    program.attach(&fragment_shader);
-    program.link().unwrap();
+        program.attach(&vertex_shader);
+        program.attach(&fragment_shader);
+        program.link().unwrap();
+        program
+    };
 
     let mut running = true;
     let mut frame_count = 0;
