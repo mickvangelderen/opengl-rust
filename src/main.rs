@@ -91,8 +91,6 @@ fn main() {
 
         // Unnecessary.
         gl::BindVertexArray(0 as GLuint);
-
-        gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
     }
 
     let mut running = true;
