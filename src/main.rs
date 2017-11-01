@@ -57,10 +57,21 @@ fn main() {
         program
     };
 
-    let vertices: [GLfloat; 12] = [-0.5, 0.5, 0.0,
-                                  0.5, 0.5, 0.0,
-                                  -0.5, -0.5, 0.0,
-                                  0.5, -0.5, 0.0];
+    let vertices: [GLfloat; 12] = [
+        -0.5,
+        0.5,
+        0.0,
+        0.5,
+        0.5,
+        0.0,
+        -0.5,
+        -0.5,
+        0.0,
+        0.5,
+        -0.5,
+        0.0,
+    ];
+
     let indices: [GLuint; 6] = [0, 2, 3, 3, 1, 0];
 
     let va = glw::VertexArray::new().unwrap();
