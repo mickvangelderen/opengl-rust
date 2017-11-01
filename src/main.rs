@@ -75,8 +75,6 @@ fn main() {
             gl::STATIC_DRAW,
         );
 
-        println!("{}", (vertices.len() * std::mem::size_of::<GLfloat>()));
-
         gl::VertexAttribPointer(
             0,
             3,
