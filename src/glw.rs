@@ -42,9 +42,9 @@ pub struct VertexBuffer(VertexBufferID);
 
 impl VertexBuffer {
     pub fn new() -> Result<Self, String> {
-        let id = VertexBufferID::new().ok_or_else(
-            || String::from("Failed to acquire buffer id.")
-        )?;
+        let id = VertexBufferID::new().ok_or_else(|| {
+            String::from("Failed to acquire buffer id.")
+        })?;
         Ok(VertexBuffer(id))
     }
 
@@ -130,11 +130,13 @@ impl Program {
                     self.id().as_uint(),
                     len,
                     ptr::null_mut(),
-                    buf.as_mut_ptr() as *mut GLchar
+                    buf.as_mut_ptr() as *mut GLchar,
                 );
             }
 
-            return Err(String::from_utf8(buf).expect("Program info log is not utf8"))
+            return Err(String::from_utf8(buf).expect(
+                "Program info log is not utf8",
+            ));
         }
 
         Ok(())

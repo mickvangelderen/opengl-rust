@@ -70,9 +70,7 @@ fn main() {
         program
     };
 
-    unsafe {
-        gl::UseProgram(program.id().as_uint())
-    }
+    unsafe { gl::UseProgram(program.id().as_uint()) }
 
     let mut running = true;
     let mut frame_count = 0;
@@ -96,7 +94,8 @@ fn main() {
         // Update delta_frame.
         let delta_frame = now.duration_since(last_frame_end);
         last_frame_end = now;
-        let delta_frame: f32 = (delta_frame.as_secs() as f32) + (delta_frame.subsec_nanos() as f32)*1e-9;
+        let delta_frame: f32 = (delta_frame.as_secs() as f32) +
+            (delta_frame.subsec_nanos() as f32) * 1e-9;
 
         // Updates background color.
         green = (green + delta_frame) % 1.0;
