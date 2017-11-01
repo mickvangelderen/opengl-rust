@@ -80,7 +80,7 @@ fn main() {
             3,
             gl::FLOAT,
             gl::FALSE,
-            mem::size_of_val(&vertices) as GLint,
+            mem::size_of::<[GLfloat; 3]>() as GLint,
             ptr::null(),
         );
 
