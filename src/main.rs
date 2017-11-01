@@ -66,7 +66,7 @@ fn main() {
 
         program.attach(&vertex_shader);
         program.attach(&fragment_shader);
-        program.link().unwrap();
+        program.link().expect("Failed to link program.");
         program
     };
 
