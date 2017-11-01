@@ -126,7 +126,7 @@ impl Program {
             }
 
             unsafe {
-                gl::GetShaderInfoLog(
+                gl::GetProgramInfoLog(
                     self.id().as_uint(),
                     len,
                     ptr::null_mut(),
