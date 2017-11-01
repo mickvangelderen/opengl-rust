@@ -216,11 +216,9 @@ pub struct Program(ProgramID);
 
 impl Program {
     pub fn new() -> Result<Self, String> {
-        let id = ProgramID::new().ok_or_else(|| {
+        ProgramID::new().map(Program).ok_or_else(|| {
             String::from("Failed to acquire program id")
-        })?;
-
-        Ok(Program(id))
+        })
     }
 
     pub unsafe fn id(&self) -> NonZero<GLuint> {
