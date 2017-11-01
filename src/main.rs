@@ -60,7 +60,7 @@ fn main() {
 
         let fragment_src = file_to_cstring("assets/fragment-shader.glsl").unwrap();
         let fragment_shader =
-            glw::VertexShader::new(fragment_src).expect("Failed to compile fragment shader.");
+            glw::FragmentShader::new(fragment_src).expect("Failed to compile fragment shader.");
 
         let program = glw::Program::new().unwrap();
 
