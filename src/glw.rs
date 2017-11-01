@@ -17,7 +17,7 @@ pub struct VertexBufferID(ValidID);
 impl VertexBufferID {
     pub fn new() -> Option<Self> {
         NonZero::new(unsafe {
-            let mut id: GLuint = 0;
+            let mut id: GLuint = 0; // mem::uninitialized() fails if id is never assigned to.
             gl::GenBuffers(1, &mut id);
             id
         }).map(VertexBufferID)
@@ -51,12 +51,45 @@ impl VertexBuffer {
     pub fn id(&self) -> &VertexBufferID {
         &self.0
     }
+}
 
-    pub fn bind(&self) -> () {
+pub struct VertexArrayID(ValidID);
+
+impl VertexArrayID {
+    pub fn new() -> Option<Self> {
+        NonZero::new(unsafe {
+            let mut id: GLuint = 0; // mem::uninitialized() fails if id is never assigned to.
+            gl::GenVertexArrays(1, &mut id);
+            id
+        }).map(VertexArrayID)
+    }
+}
+
+impl ID for VertexArrayID {
+    unsafe fn as_uint(&self) -> GLuint {
+        (self.0).get()
+    }
+}
+
+impl Drop for VertexArrayID {
+    fn drop(&mut self) {
         unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.id().as_uint());
-            // FIXME: Check for errors.
+            gl::DeleteVertexArrays(1, &self.as_uint());
         }
+    }
+}
+
+pub struct VertexArray(VertexArrayID);
+
+impl VertexArray {
+    pub fn new() -> Result<Self, String> {
+        VertexArrayID::new().map(VertexArray).ok_or_else(|| {
+            String::from("Failed to acquire vertex array id.")
+        })
+    }
+
+    pub fn id(&self) -> &VertexArrayID {
+        &self.0
     }
 }
 

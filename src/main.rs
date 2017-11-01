@@ -14,6 +14,8 @@ use gl::types::*;
 use glw::Shader;
 use glw::ID;
 use std::time;
+use std::ptr;
+use std::mem;
 
 fn main() {
     let mut events_loop = glutin::EventsLoop::new();
@@ -38,21 +40,6 @@ fn main() {
         gl::ClearColor(0.0, 1.0, 0.0, 1.0);
     }
 
-    let vertices: [GLfloat; 9] = [-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.7, 0.0];
-
-    let vb = glw::VertexBuffer::new().unwrap();
-
-    vb.bind();
-
-    unsafe {
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr,
-            std::mem::transmute(&vertices[0]),
-            gl::STATIC_DRAW,
-        );
-    }
-
     let program = {
         let vertex_src = file_to_cstring("assets/vertex-shader.glsl").unwrap();
         let vertex_shader =
@@ -70,7 +57,45 @@ fn main() {
         program
     };
 
-    unsafe { gl::UseProgram(program.id().as_uint()) }
+    // Set up vertex array and buffer.
+    let vertices: [GLfloat; 9] = [-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0];
+
+    let va = glw::VertexArray::new().unwrap();
+    let vb = glw::VertexBuffer::new().unwrap();
+
+    unsafe {
+        gl::BindVertexArray(va.id().as_uint());
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, vb.id().as_uint());
+
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            mem::size_of_val(&vertices) as GLsizeiptr,
+            vertices.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW,
+        );
+
+        println!("{}", (vertices.len() * std::mem::size_of::<GLfloat>()));
+
+        gl::VertexAttribPointer(
+            0,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of_val(&vertices) as GLint,
+            ptr::null(),
+        );
+
+        gl::EnableVertexAttribArray(0);
+
+        // Unnecessary.
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0 as GLuint);
+
+        // Unnecessary.
+        gl::BindVertexArray(0 as GLuint);
+
+        gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+    }
 
     let mut running = true;
     let mut frame_count = 0;
@@ -79,6 +104,7 @@ fn main() {
     let mut green = 0f32;
 
     while running {
+
         let now = time::Instant::now();
 
         // Update FPS.
@@ -97,7 +123,7 @@ fn main() {
         let delta_frame: f32 = (delta_frame.as_secs() as f32) +
             (delta_frame.subsec_nanos() as f32) * 1e-9;
 
-        // Updates background color.
+        // Update background color.
         green = (green + delta_frame) % 1.0;
 
         // Process events.
@@ -124,9 +150,17 @@ fn main() {
             _ => (),
         });
 
+        // Render.
         unsafe {
             gl::ClearColor(0.0, green, 0.0, 1.0);
+
             gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            gl::UseProgram(program.id().as_uint());
+
+            gl::BindVertexArray(va.id().as_uint());
+
+            gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
 
         gl_window.swap_buffers().unwrap();
