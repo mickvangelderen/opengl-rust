@@ -57,11 +57,15 @@ fn main() {
         program
     };
 
-    // Set up vertex array and buffer.
-    let vertices: [GLfloat; 9] = [-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0];
+    let vertices: [GLfloat; 12] = [-0.5, 0.5, 0.0,
+                                  0.5, 0.5, 0.0,
+                                  -0.5, -0.5, 0.0,
+                                  0.5, -0.5, 0.0];
+    let indices: [GLuint; 6] = [0, 2, 3, 3, 1, 0];
 
     let va = glw::VertexArray::new().unwrap();
     let vb = glw::VertexBuffer::new().unwrap();
+    let ve = glw::VertexBuffer::new().unwrap();
 
     unsafe {
         gl::BindVertexArray(va.id().as_uint());
@@ -72,6 +76,15 @@ fn main() {
             gl::ARRAY_BUFFER,
             mem::size_of_val(&vertices) as GLsizeiptr,
             vertices.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW,
+        );
+
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ve.id().as_uint());
+
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            mem::size_of_val(&indices) as GLsizeiptr,
+            indices.as_ptr() as *const GLvoid,
             gl::STATIC_DRAW,
         );
 
@@ -156,7 +169,7 @@ fn main() {
 
             gl::BindVertexArray(va.id().as_uint());
 
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         }
 
         gl_window.swap_buffers().unwrap();
