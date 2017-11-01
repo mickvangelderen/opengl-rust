@@ -72,6 +72,10 @@ fn main() {
         program
     };
 
+    unsafe {
+        gl::UseProgram(program.id().as_uint())
+    }
+
     let mut running = true;
     let mut frame_count = 0;
     let mut last_fps_end = time::Instant::now();
@@ -132,7 +136,7 @@ fn main() {
     }
 }
 
-pub struct VertexBufferID(NonZero<GLuint>);
+pub struct VertexBufferID(ValidID);
 
 impl VertexBufferID {
     pub fn new() -> Option<Self> {
@@ -143,15 +147,15 @@ impl VertexBufferID {
         }).map(VertexBufferID)
     }
 
-    pub unsafe fn get(&self) -> NonZero<GLuint> {
-        self.0
+    pub unsafe fn as_uint(&self) -> GLuint {
+        (self.0).get()
     }
 }
 
 impl Drop for VertexBufferID {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteBuffers(1, &self.get().get());
+            gl::DeleteBuffers(1, &self.as_uint());
         }
     }
 }
@@ -166,13 +170,13 @@ impl VertexBuffer {
         Ok(VertexBuffer(id))
     }
 
-    unsafe fn id(&self) -> NonZero<GLuint> {
-        (self.0).get()
+    fn id(&self) -> &VertexBufferID {
+        &self.0
     }
 
     fn bind(&self) -> () {
         unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.id().get());
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.id().as_uint());
             // FIXME: Check for errors.
         }
     }
@@ -181,7 +185,7 @@ impl VertexBuffer {
 impl Drop for VertexBuffer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteBuffers(1, &self.id().get());
+            gl::DeleteBuffers(1, &self.id().as_uint());
         }
     }
 }
@@ -195,22 +199,24 @@ fn file_to_cstring<P: AsRef<Path>>(path: P) -> std::io::Result<std::ffi::CString
     Ok(string)
 }
 
-pub struct ProgramID(NonZero<GLuint>);
+type ValidID = NonZero<GLuint>;
+
+pub struct ProgramID(ValidID);
 
 impl ProgramID {
     pub fn new() -> Option<Self> {
         NonZero::new(unsafe { gl::CreateProgram() }).map(ProgramID)
     }
 
-    pub unsafe fn get(&self) -> NonZero<GLuint> {
-        self.0
+    pub unsafe fn as_uint(&self) -> GLuint {
+        (self.0).get()
     }
 }
 
 impl Drop for ProgramID {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteProgram(self.get().get());
+            gl::DeleteProgram(self.as_uint());
         }
     }
 }
@@ -224,32 +230,32 @@ impl Program {
         })
     }
 
-    pub unsafe fn id(&self) -> NonZero<GLuint> {
-        (self.0).get()
+    pub fn id(&self) -> &ProgramID {
+        &self.0
     }
 
     pub fn attach<T: Shader>(&self, shader: &T) {
         unsafe {
-            gl::AttachShader(self.id().get(), shader.id().get());
+            gl::AttachShader(self.id().as_uint(), shader.id().get());
         }
     }
 
     pub fn link(&self) -> Result<(), String> {
         unsafe {
-            gl::LinkProgram(self.id().get());
+            gl::LinkProgram(self.id().as_uint());
         }
 
         let mut status = gl::FALSE as GLint;
 
         unsafe {
-            gl::GetProgramiv(self.id().get(), gl::LINK_STATUS, &mut status);
+            gl::GetProgramiv(self.id().as_uint(), gl::LINK_STATUS, &mut status);
         }
 
         if status != (gl::TRUE as GLint) {
             let mut len = 0;
 
             unsafe {
-                gl::GetProgramiv(self.id().get(), gl::INFO_LOG_LENGTH, &mut len);
+                gl::GetProgramiv(self.id().as_uint(), gl::INFO_LOG_LENGTH, &mut len);
             }
 
             let mut buf = Vec::with_capacity(len as usize);
@@ -260,7 +266,7 @@ impl Program {
 
             unsafe {
                 gl::GetShaderInfoLog(
-                    self.id().get(),
+                    self.id().as_uint(),
                     len,
                     ptr::null_mut(),
                     buf.as_mut_ptr() as *mut GLchar
