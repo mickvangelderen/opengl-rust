@@ -11,6 +11,6 @@ void main()
   fs_color = mix(
     texture(tex_color, vs_tex),
     vec4(vs_color, 1.0f),
-    0.5
+    0.1
   );
 }

@@ -3,12 +3,13 @@
 extern crate gl;
 extern crate glutin;
 extern crate core;
+extern crate jpeg_decoder as jpeg;
+
 
 mod glw;
 
 use glutin::GlContext;
 use std::path::Path;
-use std::fs::File;
 use std::io::Read;
 use gl::types::*;
 use glw::Shader;
@@ -16,6 +17,9 @@ use glw::ID;
 use std::time;
 use std::ptr;
 use std::mem;
+use std::io;
+use std::fs;
+
 
 macro_rules! c_str {
     ($s:expr) => (
@@ -119,16 +123,28 @@ fn main() {
     let vb = glw::VertexBuffer::new().unwrap();
     let ve = glw::VertexBuffer::new().unwrap();
 
-    let tex_data: [u8; 12] = [
-        // Bottom left.
-        0, 0, 0,
-        // Bottom right.
-        255, 255, 255,
-        // Top left.
-        255, 0, 0,
-        // Top right.
-        0, 255, 0,
-    ];
+    let file = fs::File::open("assets/bricks-grey.jpg").unwrap();
+    let buf_file = io::BufReader::new(file);
+    let mut decoder = jpeg::Decoder::new(buf_file);
+    let tex_data = decoder.decode().expect("Failed to decode jpeg.");
+    let tex_info = decoder.info().unwrap();
+    // Flip the texture.
+    let tex_data = {
+        let w = tex_info.width as usize;
+        let h = tex_info.height as usize;
+        let mut buffer = Vec::with_capacity(w*h*3);
+        unsafe { buffer.set_len(w*h*3); }
+        for r in 0..h {
+            for c in 0..w {
+                for b in 0..3 {
+                    let in_i = (r * w + c) * 3 + b;
+                    let out_i = ((h - 1 - r) * w + c) * 3 + b;
+                    buffer[out_i] = tex_data[in_i];
+                }
+            }
+        }
+        buffer
+    };
 
     let stride = mem::size_of::<[GLfloat; 8]>() as GLint;
 
@@ -203,7 +219,7 @@ fn main() {
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
 
-        gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, 2, 2, 0, gl::RGB, gl::UNSIGNED_BYTE, tex_data.as_ptr() as *const GLvoid);
+        gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, tex_info.width as GLint, tex_info.height as GLint, 0, gl::RGB, gl::UNSIGNED_BYTE, tex_data.as_ptr() as *const GLvoid);
         gl::GenerateMipmap(gl::TEXTURE_2D);
     }
 
@@ -285,8 +301,8 @@ fn main() {
 }
 
 fn file_to_cstring<P: AsRef<Path>>(path: P) -> std::io::Result<std::ffi::CString> {
-    let file = File::open(path)?;
-    let mut reader = std::io::BufReader::new(file);
+    let file = fs::File::open(path)?;
+    let mut reader = io::BufReader::new(file);
     let mut bytes = Vec::new();
     reader.read_to_end(&mut bytes)?;
     let string = std::ffi::CString::new(bytes)?;
