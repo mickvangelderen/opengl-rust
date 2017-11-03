@@ -11,8 +11,8 @@ extern crate simple_field_offset;
 
 mod glw;
 
-use cgmath::Vector2;
-use cgmath::Vector3;
+use cgmath::prelude::*;
+use cgmath::*;
 use glutin::GlContext;
 use std::path::Path;
 use std::io::Read;
@@ -36,6 +36,12 @@ struct VertexData {
     position: Vector3<GLfloat>,
     color: Vector3<GLfloat>,
     tex_coords: Vector2<GLfloat>,
+}
+
+fn duration_to_seconds(duration: time::Duration) -> f64 {
+    let seconds = duration.as_secs() as f64;
+    let nanoseconds = duration.subsec_nanos() as f64;
+    seconds + nanoseconds * 1e-9
 }
 
 fn main() {
@@ -207,10 +213,11 @@ fn main() {
         gl::Uniform1i(tex_unif, 0);
     }
 
+    let start = time::Instant::now();
     let mut running = true;
     let mut frame_count = 0;
-    let mut last_fps_end = time::Instant::now();
-    let mut last_frame_end = time::Instant::now();
+    let mut last_fps_end = start;
+    let mut last_frame_end = start;
     let mut green = 0f32;
     let mut mix_val = 0.5;
 
@@ -262,6 +269,14 @@ fn main() {
             glutin::Event::DeviceEvent { .. } => {}
             _ => (),
         });
+        let angle = {
+            let s = duration_to_seconds(now.duration_since(start));
+            let rps = 1.0/16.0;
+            Rad((s*std::f64::consts::PI*2.0*rps) as f32)
+        };
+        let x_shift = f32::cos(angle.0);
+        let y_shift = f32::sin(angle.0);
+        let transform = Matrix4::from_translation(Vector3::new(x_shift, y_shift, 0.0));
 
         // Render.
         unsafe {
@@ -278,6 +293,20 @@ fn main() {
             }
 
             gl::BindVertexArray(va.id().as_uint());
+
+            {
+                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("transform"));
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, transform.as_ptr());
+            }
+
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+
+            {
+                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("transform"));
+                let transform: Matrix4<GLfloat> = Matrix4::from_translation(Vector3::new(0.5, 0.0, 0.0)) *
+                    Matrix4::from(Quaternion::from(Euler::new(Rad::zero(), Rad::zero(), angle)));
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, transform.as_ptr());
+            }
 
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         }
