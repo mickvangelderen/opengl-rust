@@ -3,8 +3,11 @@ name = "opengl-experiment"
 version = "0.1.0"
 authors = ["Mick van Gelderen <mickvangelderen@gmail.com>"]
 
+[workspace]
+
 [dependencies]
 cgmath = "0.15.0"
 glutin = "0.10.0"
 gl = "0.6.3"
 jpeg-decoder = "0.1.13"
+simple-field-offset = { path = "simple-field-offset" }

@@ -1,0 +1,6 @@
+[package]
+name = "simple-field-offset"
+version = "0.1.0"
+authors = ["Mick van Gelderen <mickvangelderen@gmail.com>"]
+
+[dependencies]

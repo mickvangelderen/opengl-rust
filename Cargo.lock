@@ -1,12 +1,6 @@
 [root]
-name = "opengl-experiment"
+name = "simple-field-offset"
 version = "0.1.0"
-dependencies = [
- "cgmath 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "gl 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "glutin 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "jpeg-decoder 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "android_glue"
@@ -334,6 +328,17 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "malloc_buf 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "opengl-experiment"
+version = "0.1.0"
+dependencies = [
+ "cgmath 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gl 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glutin 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "jpeg-decoder 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "simple-field-offset 0.1.0",
 ]
 
 [[package]]

@@ -6,6 +6,9 @@ extern crate core;
 extern crate jpeg_decoder as jpeg;
 extern crate cgmath;
 
+#[macro_use(field_offset)]
+extern crate simple_field_offset;
+
 mod glw;
 
 use cgmath::Vector2;
@@ -33,17 +36,6 @@ struct VertexData {
     position: Vector3<GLfloat>,
     color: Vector3<GLfloat>,
     tex_coords: Vector2<GLfloat>,
-}
-
-macro_rules! field_offset {
-    ($Type:ty, $field:ident) => (
-        unsafe { &(*(0 as *const $Type)).$field as *const _ } as _
-    );
-    ($Type:ty, ( $($field:ident),+ )) => (
-        (
-            $( field_offset!($Type, $field) ),+
-        )
-    );
 }
 
 fn main() {
@@ -141,10 +133,7 @@ fn main() {
     };
 
     let stride = mem::size_of::<VertexData>() as GLint;
-    let (position_offset, color_offset, tex_coords_offset): (*const GLvoid,
-                                                             *const GLvoid,
-                                                             *const GLvoid) =
-        field_offset!(VertexData, (position, color, tex_coords));
+    let (position_offset, color_offset, tex_coords_offset) = field_offset!(VertexData, (position, color, tex_coords), *const GLvoid);
 
     unsafe {
         gl::BindVertexArray(va.id().as_uint());
