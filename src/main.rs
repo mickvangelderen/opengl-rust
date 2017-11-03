@@ -107,31 +107,6 @@ fn main() {
     let vb = glw::VertexBuffer::new().unwrap();
     let ve = glw::VertexBuffer::new().unwrap();
 
-    let file = fs::File::open("assets/bricks-grey.jpg").unwrap();
-    let buf_file = io::BufReader::new(file);
-    let mut decoder = jpeg::Decoder::new(buf_file);
-    let tex_data = decoder.decode().expect("Failed to decode jpeg.");
-    let tex_info = decoder.info().unwrap();
-    // Flip the texture.
-    let tex_data = {
-        let w = tex_info.width as usize;
-        let h = tex_info.height as usize;
-        let mut buffer = Vec::with_capacity(w * h * 3);
-        unsafe {
-            buffer.set_len(w * h * 3);
-        }
-        for r in 0..h {
-            for c in 0..w {
-                for b in 0..3 {
-                    let in_i = (r * w + c) * 3 + b;
-                    let out_i = ((h - 1 - r) * w + c) * 3 + b;
-                    buffer[out_i] = tex_data[in_i];
-                }
-            }
-        }
-        buffer
-    };
-
     let stride = mem::size_of::<VertexData>() as GLint;
     let (position_offset, color_offset, tex_coords_offset) = field_offset!(VertexData, (position, color, tex_coords), *const GLvoid);
 
@@ -172,29 +147,59 @@ fn main() {
         gl::BindVertexArray(0 as GLuint);
     }
 
-    let mut tex_id: GLuint = 0;
-    unsafe {
-        gl::GenTextures(1, &mut tex_id);
-        gl::BindTexture(gl::TEXTURE_2D, tex_id);
+    let tex_id: GLuint = {
+        let file = fs::File::open("assets/bricks-grey.jpg").unwrap();
+        let buf_file = io::BufReader::new(file);
+        let mut decoder = jpeg::Decoder::new(buf_file);
+        let tex_data = decoder.decode().expect("Failed to decode jpeg.");
+        let tex_info = decoder.info().unwrap();
+        // Flip the texture.
+        let tex_data = {
+            let w = tex_info.width as usize;
+            let h = tex_info.height as usize;
+            let mut buffer = Vec::with_capacity(w * h * 3);
+            unsafe {
+                buffer.set_len(w * h * 3);
+            }
+            for r in 0..h {
+                for c in 0..w {
+                    for b in 0..3 {
+                        let in_i = (r * w + c) * 3 + b;
+                        let out_i = ((h - 1 - r) * w + c) * 3 + b;
+                        buffer[out_i] = tex_data[in_i];
+                    }
+                }
+            }
+            buffer
+        };
 
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+        let mut tex_id = 0;
+        unsafe {
+            gl::GenTextures(1, &mut tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
 
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::RGB as GLint,
-            tex_info.width as GLint,
-            tex_info.height as GLint,
-            0,
-            gl::RGB,
-            gl::UNSIGNED_BYTE,
-            tex_data.as_ptr() as *const GLvoid,
-        );
-        gl::GenerateMipmap(gl::TEXTURE_2D);
-    }
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as GLint,
+                tex_info.width as GLint,
+                tex_info.height as GLint,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                tex_data.as_ptr() as *const GLvoid,
+            );
+            gl::GenerateMipmap(gl::TEXTURE_2D);
+        }
+
+        tex_id
+    };
 
     unsafe {
         gl::UseProgram(program.id().as_uint());
