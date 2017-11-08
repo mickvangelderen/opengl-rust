@@ -218,8 +218,6 @@ fn main() {
     let mut frame_count = 0;
     let mut last_fps_end = start;
     let mut last_frame_end = start;
-    let mut green = 0f32;
-    let mut mix_val = 0.5;
 
     while running {
 
@@ -239,9 +237,6 @@ fn main() {
         let delta_frame = duration_to_seconds(now.duration_since(last_frame_end)) as f32;
         last_frame_end = now;
 
-        // Update background color.
-        green = (green + delta_frame) % 1.0;
-
         // Process events.
         events_loop.poll_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => {
@@ -256,8 +251,6 @@ fn main() {
                     glutin::WindowEvent::KeyboardInput { input, .. } => {
                         match input.virtual_keycode {
                             Some(glutin::VirtualKeyCode::Escape) => running = false,
-                            Some(glutin::VirtualKeyCode::Up) => mix_val += 0.1,
-                            Some(glutin::VirtualKeyCode::Down) => mix_val -= 0.1,
                             _ => (),
                         }
                     }
@@ -286,8 +279,6 @@ fn main() {
             gl::UseProgram(program.id().as_uint());
 
             {
-                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("mix_val"));
-                gl::Uniform1f(loc, mix_val);
             }
 
             gl::BindVertexArray(va.id().as_uint());
