@@ -45,12 +45,18 @@ fn duration_to_seconds(duration: time::Duration) -> f64 {
 }
 
 fn main() {
+    const INITIAL_WIDTH: u32 = 1024;
+    const INITIAL_HEIGHT: u32 = 768;
+    const INITIAL_FOVY: Rad<GLfloat> = Rad(45.0 * 3.1415 / 180.0);
+    const INITIAL_NEAR: GLfloat = 1.0;
+    const INITIAL_FAR: GLfloat = 100.0;
+
     let mut events_loop = glutin::EventsLoop::new();
 
     let gl_window = glutin::GlWindow::new(
         glutin::WindowBuilder::new()
             .with_title("rust-opengl")
-            .with_dimensions(1024, 768),
+            .with_dimensions(INITIAL_WIDTH, INITIAL_HEIGHT),
         glutin::ContextBuilder::new()
             .with_vsync(true)
             .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3)))
@@ -219,6 +225,26 @@ fn main() {
     let mut last_fps_end = start;
     let mut last_frame_end = start;
 
+    let mut move_up = false;
+    let mut move_down = false;
+    let mut move_left = false;
+    let mut move_right = false;
+    let mut move_forward = false;
+    let mut move_backward = false;
+
+    let mut camera_transform: Decomposed<Vector3<GLfloat>, Quaternion<GLfloat>> = Decomposed {
+        scale: 1.0,
+        disp: Vector3 { x: 0.0, y: 0.0, z: 10.0 },
+        rot: Quaternion::one(),
+    };
+
+    let mut projection_transform = Matrix4::from(PerspectiveFov {
+        fovy: INITIAL_FOVY,
+        aspect: (INITIAL_WIDTH as GLfloat) / (INITIAL_HEIGHT as GLfloat),
+        near: INITIAL_NEAR,
+        far: INITIAL_FAR,
+    });
+
     while running {
 
         let now = time::Instant::now();
@@ -247,10 +273,30 @@ fn main() {
                         unsafe {
                             gl::Viewport(0, 0, w as i32, h as i32);
                         }
+
+                        projection_transform = Matrix4::from(PerspectiveFov {
+                            fovy: INITIAL_FOVY,
+                            aspect: (w as GLfloat) / (h as GLfloat),
+                            near: INITIAL_NEAR,
+                            far: INITIAL_FAR,
+                        });
                     }
+
                     glutin::WindowEvent::KeyboardInput { input, .. } => {
+                        let pressed = if let glutin::ElementState::Pressed = input.state {
+                            true
+                        } else {
+                            false
+                        };
+
                         match input.virtual_keycode {
                             Some(glutin::VirtualKeyCode::Escape) => running = false,
+                            Some(glutin::VirtualKeyCode::W) => move_forward = pressed,
+                            Some(glutin::VirtualKeyCode::S) => move_backward = pressed,
+                            Some(glutin::VirtualKeyCode::A) => move_left = pressed,
+                            Some(glutin::VirtualKeyCode::D) => move_right = pressed,
+                            Some(glutin::VirtualKeyCode::Q) => move_up = pressed,
+                            Some(glutin::VirtualKeyCode::Z) => move_down = pressed,
                             _ => (),
                         }
                     }
@@ -260,6 +306,13 @@ fn main() {
             glutin::Event::DeviceEvent { .. } => {}
             _ => (),
         });
+
+        camera_transform.disp += Vector3 {
+            x: move_right as u32 as GLfloat - move_left as u32 as GLfloat,
+            y: move_up as u32 as GLfloat - move_down as u32 as GLfloat,
+            z: move_backward as u32 as GLfloat - move_forward as u32 as GLfloat,
+        } * delta_frame as f32;
+
         let angle = {
             let s = duration_to_seconds(now.duration_since(start));
             let rps = 1.0/16.0;
@@ -267,7 +320,7 @@ fn main() {
         };
         let x_shift = f32::cos(angle.0);
         let y_shift = f32::sin(angle.0);
-        let transform = Matrix4::from_translation(Vector3::new(x_shift, y_shift, 0.0));
+        let model_transform = Matrix4::from_translation(Vector3::new(x_shift, y_shift, 0.0));
 
         // Render.
         unsafe {
@@ -279,22 +332,32 @@ fn main() {
             gl::UseProgram(program.id().as_uint());
 
             {
+                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("model"));
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, model_transform.as_ptr());
+            }
+
+            {
+                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("view"));
+                let inverse_camera_transform = Matrix4::from(camera_transform.inverse_transform().unwrap());
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, inverse_camera_transform.as_ptr());
+            }
+
+            {
+                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("projection"));
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, projection_transform.as_ptr());
             }
 
             gl::BindVertexArray(va.id().as_uint());
-
-            {
-                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("transform"));
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, transform.as_ptr());
-            }
-
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
 
             {
-                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("transform"));
-                let transform: Matrix4<GLfloat> = Matrix4::from_translation(Vector3::new(0.5, 0.0, 0.0)) *
-                    Matrix4::from(Quaternion::from(Euler::new(Rad::zero(), Rad::zero(), angle)));
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, transform.as_ptr());
+                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("model"));
+                let model_transform: Matrix4<GLfloat> =
+                    Matrix4::from_translation(Vector3::new(0.5, 0.0, 0.0)) *
+                        Matrix4::from(Quaternion::from(
+                            Euler::new(Rad::zero(), Rad::zero(), angle),
+                        ));
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, model_transform.as_ptr());
             }
 
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
