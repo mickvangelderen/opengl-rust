@@ -9,7 +9,8 @@ extern crate cgmath;
 #[macro_use(field_offset)]
 extern crate simple_field_offset;
 
-mod glw;
+pub mod glw;
+pub mod shader;
 
 use cgmath::prelude::*;
 use cgmath::*;
@@ -17,8 +18,6 @@ use glutin::GlContext;
 use std::path::Path;
 use std::io::Read;
 use gl::types::*;
-use glw::Shader;
-use glw::ID;
 use std::time;
 use std::ptr;
 use std::mem;
@@ -75,12 +74,16 @@ fn main() {
 
     let program = {
         let vertex_src = file_to_cstring("assets/vertex-shader.glsl").unwrap();
-        let vertex_shader =
-            glw::VertexShader::new(vertex_src).expect("Failed to compile vertex shader.");
+        let vertex_shader = shader::specialization::VertexShaderId::new()
+            .expect("Failed to acquire vertex shader id.")
+            .compile(vertex_src)
+            .expect("Failed to compile vertex shader.");
 
         let fragment_src = file_to_cstring("assets/fragment-shader.glsl").unwrap();
-        let fragment_shader =
-            glw::FragmentShader::new(fragment_src).expect("Failed to compile fragment shader.");
+        let fragment_shader = shader::specialization::FragmentShaderId::new()
+            .expect("Failed to acquire fragment shader id.")
+            .compile(fragment_src)
+            .expect("Failed to compile fragment shader.");
 
         let program = glw::Program::new().unwrap();
 

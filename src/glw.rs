@@ -1,16 +1,12 @@
 extern crate core;
 extern crate gl;
 
+use super::shader;
 use gl::types::*;
-use std::ffi;
 use std::ptr;
 use core::nonzero::NonZero;
 
 type ValidID = NonZero<GLuint>;
-
-pub trait ID {
-    unsafe fn as_uint(&self) -> GLuint;
-}
 
 pub struct VertexBufferID(ValidID);
 
@@ -22,10 +18,8 @@ impl VertexBufferID {
             id
         }).map(VertexBufferID)
     }
-}
 
-impl ID for VertexBufferID {
-    unsafe fn as_uint(&self) -> GLuint {
+    pub unsafe fn as_uint(&self) -> GLuint {
         (self.0).get()
     }
 }
@@ -63,10 +57,8 @@ impl VertexArrayID {
             id
         }).map(VertexArrayID)
     }
-}
 
-impl ID for VertexArrayID {
-    unsafe fn as_uint(&self) -> GLuint {
+    pub unsafe fn as_uint(&self) -> GLuint {
         (self.0).get()
     }
 }
@@ -99,10 +91,8 @@ impl ProgramID {
     pub fn new() -> Option<Self> {
         NonZero::new(unsafe { gl::CreateProgram() }).map(ProgramID)
     }
-}
 
-impl ID for ProgramID {
-    unsafe fn as_uint(&self) -> GLuint {
+    pub unsafe fn as_uint(&self) -> GLuint {
         (self.0).get()
     }
 }
@@ -128,9 +118,9 @@ impl Program {
         &self.0
     }
 
-    pub fn attach<T: Shader>(&self, shader: &T) {
+    pub fn attach<T: AsRef<shader::CompiledShaderId>>(&self, shader_id: T) {
         unsafe {
-            gl::AttachShader(self.id().as_uint(), shader.id().as_uint());
+            gl::AttachShader(self.id().as_uint(), shader_id.as_ref().as_uint());
         }
     }
 
@@ -176,110 +166,3 @@ impl Program {
     }
 }
 
-pub trait Shader {
-    type ShaderID: ID;
-
-    fn new(source: ffi::CString) -> Result<Self, String>
-    where
-        Self: Sized;
-
-    fn id(&self) -> &Self::ShaderID;
-}
-
-macro_rules! impl_shader_type {
-    ($XShaderID:ident, $XShader:ident, $SHADER_TYPE:path) => (
-        pub struct $XShaderID(ValidID);
-
-        impl $XShaderID {
-            pub fn new() -> Option<Self> {
-                NonZero::new(unsafe { gl::CreateShader($SHADER_TYPE) })
-                    .map($XShaderID)
-            }
-        }
-
-        impl ID for $XShaderID {
-            unsafe fn as_uint(&self) -> GLuint {
-                (self.0).get()
-            }
-        }
-
-        impl Drop for $XShaderID {
-            fn drop(&mut self) {
-                unsafe { gl::DeleteShader((self.0).get()) };
-            }
-        }
-
-        pub struct $XShader($XShaderID);
-
-        impl Shader for $XShader {
-            type ShaderID = $XShaderID;
-
-            fn new(source: ffi::CString) -> Result<Self, String> {
-
-                let id = $XShaderID::new().ok_or_else(
-                    || String::from("Failed to create shader object.")
-                )?;
-
-                unsafe {
-                    gl::ShaderSource(id.as_uint(), 1, &source.as_ptr(), ptr::null());
-                }
-
-                unsafe {
-                    gl::CompileShader(id.as_uint());
-                }
-
-                let mut status = gl::FALSE as GLint;
-
-                unsafe {
-                    gl::GetShaderiv(id.as_uint(), gl::COMPILE_STATUS, &mut status);
-                }
-
-                if status != (gl::TRUE as GLint) {
-                    let mut len = 0;
-
-                    unsafe {
-                        gl::GetShaderiv(id.as_uint(), gl::INFO_LOG_LENGTH, &mut len);
-                    }
-
-                    let mut buf = Vec::with_capacity(len as usize);
-
-                    unsafe {
-                        buf.set_len((len as usize) - 1);
-                    }
-
-                    unsafe {
-                        gl::GetShaderInfoLog(
-                            id.as_uint(),
-                            len,
-                            ptr::null_mut(),
-                            buf.as_mut_ptr() as *mut GLchar
-                        );
-                    }
-
-                    Err(String::from_utf8(buf).expect("Shader info log is not utf8"))
-                } else {
-                    Ok($XShader(id))
-                }
-            }
-
-            fn id(&self) -> &Self::ShaderID {
-                &self.0
-            }
-        }
-    )
-}
-
-impl_shader_type!(ComputeShaderID, ComputeShader, gl::COMPUTE_SHADER);
-impl_shader_type!(FragmentShaderID, FragmentShader, gl::FRAGMENT_SHADER);
-impl_shader_type!(GeometryShaderID, GeometryShader, gl::GEOMETRY_SHADER);
-impl_shader_type!(
-    TesselationControlShaderID,
-    TesselationControlShader,
-    gl::TESS_CONTROL_SHADER
-);
-impl_shader_type!(
-    TesselationEvaluationShaderID,
-    TesselationEvaluationShader,
-    gl::TESS_EVALUATION_SHADER
-);
-impl_shader_type!(VertexShaderID, VertexShader, gl::VERTEX_SHADER);
