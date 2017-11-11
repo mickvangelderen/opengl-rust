@@ -11,6 +11,7 @@ extern crate simple_field_offset;
 
 pub mod glw;
 pub mod shader;
+pub mod program;
 
 use cgmath::prelude::*;
 use cgmath::*;
@@ -85,12 +86,12 @@ fn main() {
             .compile(fragment_src)
             .expect("Failed to compile fragment shader.");
 
-        let program = glw::Program::new().unwrap();
+        let program = program::ProgramId::new()
+            .expect("Failed to acquire program id.");
 
         program.attach(&vertex_shader);
         program.attach(&fragment_shader);
-        program.link().expect("Failed to link program.");
-        program
+        program.link().expect("Failed to link program.")
     };
 
     let vertices: [VertexData; 4] = [
@@ -216,9 +217,10 @@ fn main() {
         tex_id
     };
 
+    program.use_program();
+
     unsafe {
-        gl::UseProgram(program.id().as_uint());
-        let tex_unif = gl::GetUniformLocation(program.id().as_uint(), c_str!("tex_color"));
+        let tex_unif = gl::GetUniformLocation(program.as_uint(), c_str!("tex_color"));
         gl::Uniform1i(tex_unif, 0);
     }
 
@@ -332,21 +334,21 @@ fn main() {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, tex_id);
 
-            gl::UseProgram(program.id().as_uint());
+            program.use_program();
 
             {
-                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("model"));
+                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("model"));
                 gl::UniformMatrix4fv(loc, 1, gl::FALSE, model_transform.as_ptr());
             }
 
             {
-                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("view"));
+                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("view"));
                 let inverse_camera_transform = Matrix4::from(camera_transform.inverse_transform().unwrap());
                 gl::UniformMatrix4fv(loc, 1, gl::FALSE, inverse_camera_transform.as_ptr());
             }
 
             {
-                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("projection"));
+                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("projection"));
                 gl::UniformMatrix4fv(loc, 1, gl::FALSE, projection_transform.as_ptr());
             }
 
@@ -354,7 +356,7 @@ fn main() {
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
 
             {
-                let loc = gl::GetUniformLocation(program.id().as_uint(), c_str!("model"));
+                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("model"));
                 let model_transform: Matrix4<GLfloat> =
                     Matrix4::from_translation(Vector3::new(0.5, 0.0, 0.0)) *
                         Matrix4::from(Quaternion::from(

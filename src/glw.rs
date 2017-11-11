@@ -1,9 +1,7 @@
 extern crate core;
 extern crate gl;
 
-use super::shader;
 use gl::types::*;
-use std::ptr;
 use core::nonzero::NonZero;
 
 type ValidID = NonZero<GLuint>;
@@ -84,85 +82,3 @@ impl VertexArray {
         &self.0
     }
 }
-
-pub struct ProgramID(ValidID);
-
-impl ProgramID {
-    pub fn new() -> Option<Self> {
-        NonZero::new(unsafe { gl::CreateProgram() }).map(ProgramID)
-    }
-
-    pub unsafe fn as_uint(&self) -> GLuint {
-        (self.0).get()
-    }
-}
-
-impl Drop for ProgramID {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteProgram(self.as_uint());
-        }
-    }
-}
-
-pub struct Program(ProgramID);
-
-impl Program {
-    pub fn new() -> Result<Self, String> {
-        ProgramID::new().map(Program).ok_or_else(|| {
-            String::from("Failed to acquire program id")
-        })
-    }
-
-    pub fn id(&self) -> &ProgramID {
-        &self.0
-    }
-
-    pub fn attach<T: AsRef<shader::CompiledShaderId>>(&self, shader_id: T) {
-        unsafe {
-            gl::AttachShader(self.id().as_uint(), shader_id.as_ref().as_uint());
-        }
-    }
-
-    pub fn link(&self) -> Result<(), String> {
-        unsafe {
-            gl::LinkProgram(self.id().as_uint());
-        }
-
-        let mut status = gl::FALSE as GLint;
-
-        unsafe {
-            gl::GetProgramiv(self.id().as_uint(), gl::LINK_STATUS, &mut status);
-        }
-
-        if status != (gl::TRUE as GLint) {
-            let mut len = 0;
-
-            unsafe {
-                gl::GetProgramiv(self.id().as_uint(), gl::INFO_LOG_LENGTH, &mut len);
-            }
-
-            let mut buf = Vec::with_capacity(len as usize);
-
-            unsafe {
-                buf.set_len((len as usize) - 1);
-            }
-
-            unsafe {
-                gl::GetProgramInfoLog(
-                    self.id().as_uint(),
-                    len,
-                    ptr::null_mut(),
-                    buf.as_mut_ptr() as *mut GLchar,
-                );
-            }
-
-            return Err(String::from_utf8(buf).expect(
-                "Program info log is not utf8",
-            ));
-        }
-
-        Ok(())
-    }
-}
-
