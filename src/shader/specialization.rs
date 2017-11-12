@@ -3,7 +3,6 @@ extern crate gl;
 
 use gl::types::GLuint;
 use core::marker::PhantomData;
-use std::ffi::CStr;
 
 pub trait ShaderKindMarker {
     const VALUE: super::ShaderKind;
@@ -43,10 +42,10 @@ impl<Kind: ShaderKindMarker> ShaderId<Kind> {
     }
 
     #[inline]
-    pub fn compile<T: AsRef<CStr>>(self, source: T) -> Result<CompiledShaderId<Kind>, String> {
-        self.0.compile(source).map(
-            |id| CompiledShaderId(id, PhantomData),
-        )
+    pub fn compile<T: AsRef<str>>(self, sources: &[T]) -> Result<CompiledShaderId<Kind>, String> {
+        self.0.compile(sources).map(|id| {
+            CompiledShaderId(id, PhantomData)
+        })
     }
 
     #[inline]
@@ -110,18 +109,18 @@ pub type CompiledTesselationEvaluationShaderId = CompiledShaderId<TesselationEva
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::CString;
 
     #[test]
+    #[should_panic]
     fn as_ref_example() {
         let vs_id = VertexShaderId::new()
             .unwrap()
-            .compile(CString::default())
+            .compile(&[ String::default() ])
             .unwrap();
 
         let fs_id = FragmentShaderId::new()
             .unwrap()
-            .compile(CString::default())
+            .compile(&[ String::default() ])
             .unwrap();
 
         let _ids: [&super::super::CompiledShaderId; 2] = [vs_id.as_ref(), fs_id.as_ref()];

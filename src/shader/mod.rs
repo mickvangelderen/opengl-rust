@@ -5,7 +5,6 @@ pub mod specialization;
 
 use core::nonzero::NonZero;
 use gl::types::*;
-use std::ffi::CStr;
 use std::ptr;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -32,9 +31,12 @@ impl ShaderId {
         self.0.get()
     }
 
-    pub fn compile<T: AsRef<CStr>>(self, source: T) -> Result<CompiledShaderId, String> {
+    pub fn compile<T: AsRef<str>>(self, sources: &[T]) -> Result<CompiledShaderId, String> {
+        let source_ptrs: Vec<*const GLchar> = sources.iter().map(|source| source.as_ref().as_ptr() as *const GLchar).collect();
+        let source_lens: Vec<GLint> = sources.iter().map(|source| source.as_ref().len() as GLint).collect();
+
         unsafe {
-            gl::ShaderSource(self.as_uint(), 1, &source.as_ref().as_ptr(), ptr::null());
+            gl::ShaderSource(self.as_uint(), sources.len() as GLint, source_ptrs.as_ptr(), source_lens.as_ptr());
             gl::CompileShader(self.as_uint());
         }
 
