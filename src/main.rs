@@ -239,13 +239,8 @@ fn main() {
     let mut camera_pos: Vector3<GLfloat> = Vector3::new(0.0, 4.0, 10.0);
     let mut camera_pitch: Rad<GLfloat> = Rad(0.0);
     let mut camera_yaw: Rad<GLfloat> = Rad(0.0);
-
-    let mut projection_transform = Matrix4::from(PerspectiveFov {
-        fovy: INITIAL_FOVY,
-        aspect: (INITIAL_WIDTH as GLfloat) / (INITIAL_HEIGHT as GLfloat),
-        near: INITIAL_NEAR,
-        far: INITIAL_FAR,
-    });
+    let mut camera_fov = INITIAL_FOVY;
+    let mut camera_aspect = (INITIAL_WIDTH as GLfloat) / (INITIAL_HEIGHT as GLfloat);
 
     while running {
 
@@ -280,12 +275,7 @@ fn main() {
                             gl::Viewport(0, 0, w as i32, h as i32);
                         }
 
-                        projection_transform = Matrix4::from(PerspectiveFov {
-                            fovy: INITIAL_FOVY,
-                            aspect: (w as GLfloat) / (h as GLfloat),
-                            near: INITIAL_NEAR,
-                            far: INITIAL_FAR,
-                        });
+                        camera_aspect = (w as GLfloat) / (h as GLfloat);
                     }
 
                     glutin::WindowEvent::KeyboardInput { input, .. } => {
@@ -347,6 +337,14 @@ fn main() {
             camera_pitch = -Rad::turn_div_4();
         }
 
+        let camera_zoom_velocity: GLfloat = 0.10;
+        camera_fov += Rad(mouse_dscroll)*camera_zoom_velocity*(delta_frame as f32);
+        if camera_fov > Deg(80.0).into() {
+            camera_fov = Deg(80.0).into()
+        } else if camera_fov < Deg(10.0).into() {
+            camera_fov = Deg(10.0).into()
+        }
+
         let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
             *Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
 
@@ -371,6 +369,12 @@ fn main() {
 
             {
                 let loc = gl::GetUniformLocation(program.as_uint(), c_str!("projection"));
+                let projection_transform = Matrix4::from(PerspectiveFov {
+                    fovy: camera_fov,
+                    aspect: camera_aspect,
+                    near: INITIAL_NEAR,
+                    far: INITIAL_FAR,
+                });
                 gl::UniformMatrix4fv(loc, 1, gl::FALSE, projection_transform.as_ptr());
             }
 
