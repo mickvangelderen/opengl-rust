@@ -48,7 +48,7 @@ fn main() {
     const INITIAL_WIDTH: u32 = 1024;
     const INITIAL_HEIGHT: u32 = 768;
     const INITIAL_FOVY: Rad<GLfloat> = Rad(45.0 * 3.1415 / 180.0);
-    const INITIAL_NEAR: GLfloat = 1.0;
+    const INITIAL_NEAR: GLfloat = 0.1;
     const INITIAL_FAR: GLfloat = 100.0;
 
     let mut events_loop = glutin::EventsLoop::new();
@@ -96,24 +96,24 @@ fn main() {
 
     let vertices: [VertexData; 4] = [
         VertexData {
-            position: Vector3::new(-0.5, 0.5, 0.0),
+            position: Vector3::new(-100.0, 0.0, -100.0),
             color: Vector3::new(1.0, 0.0, 0.0),
-            tex_coords: Vector2::new(0.0, 1.0),
+            tex_coords: Vector2::new(0.0, 200.0),
         },
         VertexData {
-            position: Vector3::new(0.5, 0.5, 0.0),
+            position: Vector3::new(100.0, 0.0, -100.0),
             color: Vector3::new(0.0, 1.0, 0.0),
-            tex_coords: Vector2::new(1.0, 1.0),
+            tex_coords: Vector2::new(200.0, 200.0),
         },
         VertexData {
-            position: Vector3::new(-0.5, -0.5, 0.0),
+            position: Vector3::new(-100.0, 0.0, 100.0),
             color: Vector3::new(0.0, 0.0, 1.0),
             tex_coords: Vector2::new(0.0, 0.0),
         },
         VertexData {
-            position: Vector3::new(0.5, -0.5, 0.0),
+            position: Vector3::new(100.0, 0.0, 100.0),
             color: Vector3::new(0.5, 0.5, 0.5),
-            tex_coords: Vector2::new(1.0, 0.0),
+            tex_coords: Vector2::new(200.0, 0.0),
         },
     ];
 
@@ -196,9 +196,8 @@ fn main() {
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR_MIPMAP_LINEAR as GLint);
 
             gl::TexImage2D(
                 gl::TEXTURE_2D,
@@ -237,11 +236,9 @@ fn main() {
     let mut move_forward = false;
     let mut move_backward = false;
 
-    let mut camera_transform: Decomposed<Vector3<GLfloat>, Quaternion<GLfloat>> = Decomposed {
-        scale: 1.0,
-        disp: Vector3 { x: 0.0, y: 0.0, z: 10.0 },
-        rot: Quaternion::one(),
-    };
+    let mut camera_pos: Vector3<GLfloat> = Vector3::new(0.0, 4.0, 10.0);
+    let mut camera_pitch: Rad<GLfloat> = Rad(0.0);
+    let mut camera_yaw: Rad<GLfloat> = Rad(0.0);
 
     let mut projection_transform = Matrix4::from(PerspectiveFov {
         fovy: INITIAL_FOVY,
@@ -267,6 +264,10 @@ fn main() {
         // Update delta_frame.
         let delta_frame = duration_to_seconds(now.duration_since(last_frame_end)) as f32;
         last_frame_end = now;
+
+        let mut mouse_dx: f32 = 0.0;
+        let mut mouse_dy: f32 = 0.0;
+        let mut mouse_dscroll: f32 = 0.0;
 
         // Process events.
         events_loop.poll_events(|event| match event {
@@ -308,24 +309,46 @@ fn main() {
                     _ => (),
                 }
             }
-            glutin::Event::DeviceEvent { .. } => {}
+            glutin::Event::DeviceEvent { device_id, event, .. } => {
+                match event {
+                    glutin::DeviceEvent::Added => println!("Added device {:?}", device_id),
+                    glutin::DeviceEvent::Removed => println!("Removed device {:?}", device_id),
+                    glutin::DeviceEvent::Motion { axis, value } => {
+                        match axis {
+                            0 => mouse_dx += value as f32,
+                            1 => mouse_dy += value as f32,
+                            3 => mouse_dscroll += value as f32,
+                            _ => (),
+                        }
+                    },
+                    _ => (),
+                }
+            },
             _ => (),
         });
 
-        camera_transform.disp += Vector3 {
-            x: move_right as u32 as GLfloat - move_left as u32 as GLfloat,
-            y: move_up as u32 as GLfloat - move_down as u32 as GLfloat,
-            z: move_backward as u32 as GLfloat - move_forward as u32 as GLfloat,
-        } * delta_frame as f32;
+        let camera_dpos =
+            Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
+            *Vector3 {
+                x: move_right as u32 as GLfloat - move_left as u32 as GLfloat,
+                y: move_up as u32 as GLfloat - move_down as u32 as GLfloat,
+                z: move_backward as u32 as GLfloat - move_forward as u32 as GLfloat,
+            };
+        let camera_positional_velocity: GLfloat = 2.0;
+        camera_pos += camera_positional_velocity*(delta_frame as f32)*camera_dpos;
 
-        let angle = {
-            let s = duration_to_seconds(now.duration_since(start));
-            let rps = 1.0/16.0;
-            Rad((s*std::f64::consts::PI*2.0*rps) as f32)
-        };
-        let x_shift = f32::cos(angle.0);
-        let y_shift = f32::sin(angle.0);
-        let model_transform = Matrix4::from_translation(Vector3::new(x_shift, y_shift, 0.0));
+        let camera_angular_velocity: GLfloat = 0.001;
+        camera_yaw += Rad(mouse_dx) * camera_angular_velocity;
+        camera_pitch += Rad(mouse_dy) * camera_angular_velocity;
+
+        if camera_pitch > Rad::turn_div_4() {
+            camera_pitch = Rad::turn_div_4();
+        } else if camera_pitch < -Rad::turn_div_4() {
+            camera_pitch = -Rad::turn_div_4();
+        }
+
+        let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
+            *Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
 
         // Render.
         unsafe {
@@ -337,14 +360,13 @@ fn main() {
             program.use_program();
 
             {
-                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("model"));
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, model_transform.as_ptr());
-            }
-
-            {
-                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("view"));
-                let inverse_camera_transform = Matrix4::from(camera_transform.inverse_transform().unwrap());
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, inverse_camera_transform.as_ptr());
+                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("cam_to_obj"));
+                let wrld_to_obj = Matrix4::from_translation(Vector3::zero());
+                let cam_to_wrld =
+                    Matrix4::from(camera_rot.invert())
+                    *Matrix4::from_translation(-camera_pos);
+                let cam_to_obj = cam_to_wrld*wrld_to_obj;
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, cam_to_obj.as_ptr());
             }
 
             {
@@ -353,18 +375,6 @@ fn main() {
             }
 
             gl::BindVertexArray(va.id().as_uint());
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
-
-            {
-                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("model"));
-                let model_transform: Matrix4<GLfloat> =
-                    Matrix4::from_translation(Vector3::new(0.5, 0.0, 0.0)) *
-                        Matrix4::from(Quaternion::from(
-                            Euler::new(Rad::zero(), Rad::zero(), angle),
-                        ));
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, model_transform.as_ptr());
-            }
-
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         }
 
