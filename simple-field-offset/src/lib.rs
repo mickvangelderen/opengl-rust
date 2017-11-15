@@ -37,16 +37,18 @@
 //     (fake_field_ptr as usize - fake_obj_ptr as usize) as $Offset
 // }
 // We can leave off the subtraction because we set fake_obj_ptr to 0.
+
 #[macro_export]
 macro_rules! field_offset {
     ($Struct:ty, $field:ident) => (
         field_offset!($Struct, $field, usize)
     );
     ($Struct:ty, $field:ident, $Offset:ty) => {
-        #[allow(unused_unsafe)]
-        unsafe {
-            &(*(0 as *const $Struct)).$field as *const _ as $Offset
-        }
+        (|| {
+            unsafe {
+                &(*(0 as *const $Struct)).$field as *const _ as $Offset
+            }
+        })()
     };
     ($Struct:ty, ( $($field:ident),+ )) => (
         (
@@ -59,7 +61,6 @@ macro_rules! field_offset {
         )
     );
 }
-
 
 #[cfg(test)]
 mod tests {
