@@ -12,6 +12,7 @@ extern crate simple_field_offset;
 pub mod glw;
 pub mod shader;
 pub mod program;
+pub mod import;
 
 use cgmath::prelude::*;
 use cgmath::*;
@@ -20,7 +21,6 @@ use std::path::Path;
 use std::io::Read;
 use gl::types::*;
 use std::time;
-use std::ptr;
 use std::mem;
 use std::io;
 use std::fs;
@@ -31,11 +31,10 @@ macro_rules! c_str {
     );
 }
 
-#[repr(C, packed)]
-struct VertexData {
-    position: Vector3<GLfloat>,
-    color: Vector3<GLfloat>,
-    tex_coords: Vector2<GLfloat>,
+macro_rules! print_expr {
+    ($e:expr) => {
+        println!("{}: {:#?}", stringify!($e), $e)
+    }
 }
 
 fn duration_to_seconds(duration: time::Duration) -> f64 {
@@ -94,37 +93,10 @@ fn main() {
         program.link().expect("Failed to link program.")
     };
 
-    let vertices: [VertexData; 4] = [
-        VertexData {
-            position: Vector3::new(-100.0, 0.0, -100.0),
-            color: Vector3::new(1.0, 0.0, 0.0),
-            tex_coords: Vector2::new(0.0, 200.0),
-        },
-        VertexData {
-            position: Vector3::new(100.0, 0.0, -100.0),
-            color: Vector3::new(0.0, 1.0, 0.0),
-            tex_coords: Vector2::new(200.0, 200.0),
-        },
-        VertexData {
-            position: Vector3::new(-100.0, 0.0, 100.0),
-            color: Vector3::new(0.0, 0.0, 1.0),
-            tex_coords: Vector2::new(0.0, 0.0),
-        },
-        VertexData {
-            position: Vector3::new(100.0, 0.0, 100.0),
-            color: Vector3::new(0.5, 0.5, 0.5),
-            tex_coords: Vector2::new(200.0, 0.0),
-        },
-    ];
-
-    let indices: [GLuint; 6] = [0, 2, 3, 3, 1, 0];
+    let mesh = import::import_obj("assets/pillar.obj").expect("Failed to import pillar.obj");
 
     let va = glw::VertexArray::new().unwrap();
     let vb = glw::VertexBuffer::new().unwrap();
-    let ve = glw::VertexBuffer::new().unwrap();
-
-    let stride = mem::size_of::<VertexData>() as GLint;
-    let (position_offset, color_offset, tex_coords_offset) = field_offset!(VertexData, (position, color, tex_coords), *const GLvoid);
 
     unsafe {
         gl::BindVertexArray(va.id().as_uint());
@@ -133,28 +105,30 @@ fn main() {
 
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            mem::size_of_val(&vertices) as GLsizeiptr,
-            vertices.as_ptr() as *const GLvoid,
+            mem::size_of_val(&mesh.data[..]) as GLsizeiptr,
+            mesh.data.as_ptr() as *const GLvoid,
             gl::STATIC_DRAW,
         );
 
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ve.id().as_uint());
-
-        gl::BufferData(
-            gl::ELEMENT_ARRAY_BUFFER,
-            mem::size_of_val(&indices) as GLsizeiptr,
-            indices.as_ptr() as *const GLvoid,
-            gl::STATIC_DRAW,
+        gl::VertexAttribPointer(
+            0,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<import::VertexData>() as GLsizei,
+            field_offset!(import::VertexData, xyz) as *const GLvoid,
         );
-
-        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, position_offset);
         gl::EnableVertexAttribArray(0);
 
-        gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, stride, color_offset);
+        gl::VertexAttribPointer(
+            1,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<import::VertexData>() as GLsizei,
+            field_offset!(import::VertexData, uv) as *const GLvoid,
+        );
         gl::EnableVertexAttribArray(1);
-
-        gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, stride, tex_coords_offset);
-        gl::EnableVertexAttribArray(2);
 
         // Unnecessary.
         gl::BindBuffer(gl::ARRAY_BUFFER, 0 as GLuint);
@@ -164,7 +138,7 @@ fn main() {
     }
 
     let tex_id: GLuint = {
-        let file = fs::File::open("assets/bricks-grey.jpg").unwrap();
+        let file = fs::File::open("assets/pillar-diffuse.jpg").unwrap();
         let buf_file = io::BufReader::new(file);
         let mut decoder = jpeg::Decoder::new(buf_file);
         let tex_data = decoder.decode().expect("Failed to decode jpeg.");
@@ -385,7 +359,7 @@ fn main() {
             }
 
             gl::BindVertexArray(va.id().as_uint());
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            gl::DrawArrays(gl::TRIANGLES, 0, (mesh.data.len() * 3) as GLsizei);
         }
 
         gl_window.swap_buffers().unwrap();
