@@ -71,6 +71,7 @@ fn main() {
     unsafe {
         gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
         gl::ClearColor(0.5, 0.5, 0.5, 1.0);
+        gl::Enable(gl::DEPTH_TEST);
     }
 
     let program = {
@@ -356,7 +357,7 @@ fn main() {
 
         // Render.
         unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, tex_id);
