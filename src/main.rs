@@ -77,17 +77,16 @@ fn main() {
         let vertex_src = file_to_string("assets/vertex-shader.glsl").unwrap();
         let vertex_shader = shader::specialization::VertexShaderId::new()
             .expect("Failed to acquire vertex shader id.")
-            .compile(&[ vertex_src ])
+            .compile(&[vertex_src])
             .expect("Failed to compile vertex shader.");
 
         let fragment_src = file_to_string("assets/fragment-shader.glsl").unwrap();
         let fragment_shader = shader::specialization::FragmentShaderId::new()
             .expect("Failed to acquire fragment shader id.")
-            .compile(&[ fragment_src ])
+            .compile(&[fragment_src])
             .expect("Failed to compile fragment shader.");
 
-        let program = program::ProgramId::new()
-            .expect("Failed to acquire program id.");
+        let program = program::ProgramId::new().expect("Failed to acquire program id.");
 
         program.attach(&vertex_shader);
         program.attach(&fragment_shader);
@@ -318,22 +317,21 @@ fn main() {
                             3 => mouse_dscroll += value as f32,
                             _ => (),
                         }
-                    },
+                    }
                     _ => (),
                 }
-            },
+            }
             _ => (),
         });
 
-        let camera_dpos =
-            Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
-            *Vector3 {
+        let camera_dpos = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
+            Vector3 {
                 x: move_right as u32 as GLfloat - move_left as u32 as GLfloat,
                 y: move_up as u32 as GLfloat - move_down as u32 as GLfloat,
                 z: move_backward as u32 as GLfloat - move_forward as u32 as GLfloat,
             };
         let camera_positional_velocity: GLfloat = 2.0;
-        camera_pos += camera_positional_velocity*(delta_frame as f32)*camera_dpos;
+        camera_pos += camera_positional_velocity * (delta_frame as f32) * camera_dpos;
 
         let camera_angular_velocity: GLfloat = 0.001;
         camera_yaw += Rad(mouse_dx) * camera_angular_velocity;
@@ -346,15 +344,15 @@ fn main() {
         }
 
         let camera_zoom_velocity: GLfloat = 0.10;
-        camera_fov += Rad(mouse_dscroll)*camera_zoom_velocity*(delta_frame as f32);
+        camera_fov += Rad(mouse_dscroll) * camera_zoom_velocity * (delta_frame as f32);
         if camera_fov > Deg(80.0).into() {
             camera_fov = Deg(80.0).into()
         } else if camera_fov < Deg(10.0).into() {
             camera_fov = Deg(10.0).into()
         }
 
-        let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
-            *Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
+        let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
+            Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
 
         // Render.
         unsafe {
@@ -368,10 +366,9 @@ fn main() {
             {
                 let loc = gl::GetUniformLocation(program.as_uint(), c_str!("cam_to_obj"));
                 let wrld_to_obj = Matrix4::from_translation(Vector3::zero());
-                let cam_to_wrld =
-                    Matrix4::from(camera_rot.invert())
-                    *Matrix4::from_translation(-camera_pos);
-                let cam_to_obj = cam_to_wrld*wrld_to_obj;
+                let cam_to_wrld = Matrix4::from(camera_rot.invert()) *
+                    Matrix4::from_translation(-camera_pos);
+                let cam_to_obj = cam_to_wrld * wrld_to_obj;
                 gl::UniformMatrix4fv(loc, 1, gl::FALSE, cam_to_obj.as_ptr());
             }
 
