@@ -94,7 +94,7 @@ fn main() {
         program.link().expect("Failed to link program.")
     };
 
-    let mesh = import::import_obj("assets/pillar.obj").expect("Failed to import pillar.obj");
+    let mesh = import::import_obj("assets/monster.obj").expect("Failed to import monster.obj");
 
     let va = glw::VertexArray::new().unwrap();
     let vb = glw::VertexBuffer::new().unwrap();
@@ -139,7 +139,7 @@ fn main() {
     }
 
     let tex_id: GLuint = {
-        let file = fs::File::open("assets/pillar-diffuse.jpg").unwrap();
+        let file = fs::File::open("assets/monster-diffuse.jpg").unwrap();
         let buf_file = io::BufReader::new(file);
         let mut decoder = jpeg::Decoder::new(buf_file);
         let tex_data = decoder.decode().expect("Failed to decode jpeg.");
