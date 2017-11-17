@@ -4,8 +4,8 @@
 /// # Examples
 ///
 /// ```
-/// # #![feature(stmt_expr_attributes)]
-/// # #[macro_use] extern crate simple_field_offset;
+/// #![feature(stmt_expr_attributes)]
+/// #[macro_use] extern crate simple_field_offset;
 ///
 /// struct Employee {
 ///     active: bool,
@@ -13,7 +13,7 @@
 ///     favorite_color: [u8; 3]
 /// }
 ///
-/// # fn main() {
+/// fn main() {
 ///     // Prints a number, value is dependent on the struct layout.
 ///     println!("{}", field_offset!(Employee, favorite_color));
 ///
@@ -22,8 +22,9 @@
 ///
 ///     // You can compute the offsets of multiple fields like so.
 ///     let (active_offset, name_offset) = field_offset!(Employee, (active, name));
-/// # }
+/// }
 /// ```
+
 // This is how the computation works.
 //
 // unsafe {
@@ -43,13 +44,12 @@ macro_rules! field_offset {
     ($Struct:ty, $field:ident) => (
         field_offset!($Struct, $field, usize)
     );
-    ($Struct:ty, $field:ident, $Offset:ty) => {
-        (|| {
-            unsafe {
-                &(*(0 as *const $Struct)).$field as *const _ as $Offset
-            }
-        })()
-    };
+    ($Struct:ty, $field:ident, $Offset:ty) => (
+        #[allow(unused_unsafe)]
+        unsafe {
+            &(*(0 as *const $Struct)).$field as *const _ as $Offset
+        }
+    );
     ($Struct:ty, ( $($field:ident),+ )) => (
         (
             $( field_offset!($Struct, $field) ),+
