@@ -33,6 +33,7 @@ macro_rules! c_str {
     );
 }
 
+#[allow(unused_macros)]
 macro_rules! print_expr {
     ($e:expr) => {
         println!("{}: {:#?}", stringify!($e), $e)
@@ -99,6 +100,7 @@ fn main() {
 
     let va = glw::VertexArray::new().unwrap();
     let vb = glw::VertexBuffer::new().unwrap();
+    let ve = glw::VertexBuffer::new().unwrap();
 
     unsafe {
         gl::BindVertexArray(va.id().as_uint());
@@ -107,8 +109,8 @@ fn main() {
 
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            mem::size_of_val(&mesh.data[..]) as GLsizeiptr,
-            mesh.data.as_ptr() as *const GLvoid,
+            mem::size_of_val(&mesh.elements[..]) as GLsizeiptr,
+            mesh.elements.as_ptr() as *const GLvoid,
             gl::STATIC_DRAW,
         );
 
@@ -131,6 +133,18 @@ fn main() {
             field_offset!(import::VertexData, uv) as *const GLvoid,
         );
         gl::EnableVertexAttribArray(1);
+
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ve.id().as_uint());
+
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            mem::size_of_val(&mesh.indices[..]) as GLsizeiptr,
+            mesh.indices.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW,
+        );
+
+        // Unnecessary.
+        // gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0 as GLuint);
 
         // Unnecessary.
         gl::BindBuffer(gl::ARRAY_BUFFER, 0 as GLuint);
@@ -361,7 +375,7 @@ fn main() {
             }
 
             gl::BindVertexArray(va.id().as_uint());
-            gl::DrawArrays(gl::TRIANGLES, 0, (mesh.data.len() * 3) as GLsizei);
+            gl::DrawElements(gl::TRIANGLES, (3 * mesh.indices.len()) as GLsizei, gl::UNSIGNED_INT, std::ptr::null());
         }
 
         gl_window.swap_buffers().unwrap();

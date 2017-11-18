@@ -334,6 +334,7 @@ dependencies = [
  "gl 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "jpeg-decoder 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num-traits 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "simple-field-offset 0.1.0",
 ]
 

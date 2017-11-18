@@ -1,28 +1,40 @@
-/// Calls naive_palette with partial equality as the predicate.
-pub fn naive_palette_eq<T>(values: &[T]) -> ( Vec<T>, Vec<usize> )
-    where T: Clone + PartialEq {
-    naive_palette(values, |l, r| l == r)
+extern crate num_traits;
+
+use num_traits::cast::FromPrimitive;
+
+pub struct Palette<E, I> {
+    pub elements: Vec<E>,
+    pub indices: Vec<I>,
 }
 
-/// Naively find all unique elements in a slice. Could be a lot better
-/// by using sorting/hashing.
-pub fn naive_palette<T, P>(values: &[T], mut predicate: P) -> ( Vec<T>, Vec<usize> )
-    where
-    T: Clone,
-    P: FnMut(&T, &T) -> bool,
+impl<E, I> Palette<E, I>
+where
+    E: Clone,
+    I: FromPrimitive,
 {
-    let mut palette: Vec<T> = Vec::new();
-    let mut indices: Vec<usize> = Vec::with_capacity(values.len());
+    /// Naively find all unique elements in a slice. Could be a lot better
+    /// by using sorting/hashing.
+    pub fn naive<P>(values: &[E], mut predicate: P) -> Self
+    where
+        P: FnMut(&E, &E) -> bool,
+    {
 
-    for value in values.iter() {
-        let index = palette.iter().position(|palette_value| predicate(value, palette_value)).unwrap_or_else(|| {
-            palette.push(value.clone());
-            palette.len() - 1
-        });
-        indices.push(index);
+        let mut elements: Vec<E> = Vec::new();
+        let mut indices: Vec<I> = Vec::with_capacity(values.len());
+
+        for value in values.iter() {
+            let index = elements
+                .iter()
+                .position(|elements_value| predicate(value, elements_value))
+                .unwrap_or_else(|| {
+                    elements.push(value.clone());
+                    elements.len() - 1
+                });
+            indices.push(I::from_usize(index).unwrap());
+        }
+
+        Palette { elements, indices }
     }
-
-    (palette, indices)
 }
 
 #[cfg(test)]
@@ -32,7 +44,7 @@ mod tests {
     #[derive(Clone, Debug, PartialEq)]
     struct Thing {
         name: String,
-        ready: bool
+        ready: bool,
     }
 
     fn thing1() -> Thing {
@@ -55,22 +67,22 @@ mod tests {
 
     #[test]
     fn empty() {
-        let (palette, indices) = naive_palette::<Thing, _>(&[], thing_eq);
-        assert_eq!(palette, Vec::new());
+        let Palette { elements, indices } = Palette::<Thing, usize>::naive(&[], thing_eq);
+        assert_eq!(elements, Vec::new());
         assert_eq!(indices, Vec::new());
     }
 
     #[test]
     fn single_element() {
-        let (palette, indices) = naive_palette(&[ thing1() ], thing_eq);
-        assert_eq!(palette, vec![ thing1() ]);
-        assert_eq!(indices, vec![ 0 ]);
+        let Palette { elements, indices } = Palette::<Thing, u16>::naive(&[ thing1() ], thing_eq);
+        assert_eq!(elements, vec![thing1()]);
+        assert_eq!(indices, vec![0]);
     }
 
     #[test]
     fn multiple_elements() {
-        let (palette, indices) = naive_palette(&[ thing1(), thing2(), thing1() ], thing_eq);
-        assert_eq!(palette, vec![ thing1(), thing2() ]);
-        assert_eq!(indices, vec![ 0, 1, 0 ]);
+        let Palette { elements, indices } = Palette::<Thing, u8>::naive(&[thing1(), thing2(), thing1()], thing_eq);
+        assert_eq!(elements, vec![thing1(), thing2()]);
+        assert_eq!(indices, vec![0, 1, 0]);
     }
 }

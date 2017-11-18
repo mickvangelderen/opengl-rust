@@ -11,3 +11,4 @@ glutin = "0.10.0"
 gl = "0.6.3"
 jpeg-decoder = "0.1.13"
 simple-field-offset = { path = "simple-field-offset" }
+num-traits = "0.1.40"

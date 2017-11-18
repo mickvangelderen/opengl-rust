@@ -6,13 +6,15 @@ use std::path::Path;
 use std::io::Read;
 use std::io;
 use std::fs;
+use super::palette;
 
 #[derive(Debug)]
 pub struct Mesh {
-    pub data: Vec<[VertexData; 3]>,
+    pub elements: Vec<VertexData>,
+    pub indices: Vec<[GLuint; 3]>,
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 #[repr(C, packed)]
 struct TriangleElement {
     xyz_index: GLuint,
@@ -73,25 +75,34 @@ pub fn import_obj<P: AsRef<Path>>(path: P) -> io::Result<Mesh> {
         }
     }
 
-    let data: Vec<_> = triangles
+    let elements: Vec<_> = triangles.iter().flat_map(|tri| tri).collect();
+
+    let palette::Palette {
+        elements: element_palette,
+        indices: element_indices,
+    } = palette::Palette::<_, GLuint>::naive(&elements, |a, b| a == b);
+
+    let element_palette = element_palette
         .iter()
-        .map(|triangle| {
-            let el_to_data = |&TriangleElement {
-                                  xyz_index,
-                                  uv_index,
-                              }| {
-                VertexData {
-                    xyz: xyzs[xyz_index as usize],
-                    uv: uvs[uv_index as usize],
-                }
-            };
-            [
-                el_to_data(&triangle[0]),
-                el_to_data(&triangle[1]),
-                el_to_data(&triangle[2]),
-            ]
+        .map(|element| {
+            VertexData {
+                xyz: xyzs[element.xyz_index as usize],
+                uv: uvs[element.uv_index as usize],
+            }
         })
         .collect();
 
-    Ok(Mesh { data })
+    let element_indices = unsafe {
+        // Beware: quality programming incoming.
+        let l = element_indices.len();
+        assert!(l % 3 == 0);
+        let mut i = ::std::mem::transmute::<Vec<GLuint>, Vec<[GLuint; 3]>>(element_indices);
+        i.set_len(l / 3);
+        i
+    };
+
+    Ok(Mesh {
+        elements: element_palette,
+        indices: element_indices,
+    })
 }
