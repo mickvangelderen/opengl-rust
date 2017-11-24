@@ -413,7 +413,6 @@ fn main() {
         let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
             Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
 
-
         // Render.
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -433,12 +432,12 @@ fn main() {
                 far: INITIAL_FAR,
             });
 
-            let light_pos_in_obj_space = Vector3::new(3.0, 2.0, 1.0);
+            let light_pos_in_wld_space = Quaternion::from_angle_y(Deg(delta_start * 90.0))
+                .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
 
             let pos_from_obj_to_wld_space =
-                Matrix4::from_translation(Vector3::new(-2.0, 0.0, 0.0)) *
-                    Matrix4::from_nonuniform_scale(1.0, 3.0, 1.0) *
-                    Matrix4::from_angle_y(Deg(delta_start * 90.0));
+                Matrix4::from_translation(Vector3::new(-1.0, 0.0, 0.0)) *
+                    Matrix4::from_angle_y(Deg(delta_start * 20.0));
 
             let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
             let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
@@ -451,11 +450,11 @@ fn main() {
 
             {
                 // FIXME: Create 3x3 matrix instead of 4x4. We don't care about translation.
-                let nor_from_obj_to_wld_space =
-                    pos_from_obj_to_wld_space.invert().unwrap().transpose();
+                let nor_from_obj_to_cam_space =
+                    pos_from_obj_to_cam_space.invert().unwrap().transpose();
                 let loc =
                     gl::GetUniformLocation(program.as_uint(), c_str!("nor_from_obj_to_cam_space"));
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, nor_from_obj_to_wld_space.as_ptr());
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, nor_from_obj_to_cam_space.as_ptr());
             }
 
             {
@@ -466,7 +465,7 @@ fn main() {
 
             {
                 let light_pos_in_cam_space =
-                    (pos_from_wld_to_cam_space * light_pos_in_obj_space.extend(1.0)).truncate();
+                    (pos_from_wld_to_cam_space * light_pos_in_wld_space.extend(1.0)).truncate();
                 let loc =
                     gl::GetUniformLocation(program.as_uint(), c_str!("light_pos_in_cam_space"));
                 gl::Uniform3fv(loc, 1, light_pos_in_cam_space.as_ptr());
@@ -482,8 +481,8 @@ fn main() {
 
             light_program.use_program();
 
-            let pos_from_obj_to_wld_space = Matrix4::from_translation(light_pos_in_obj_space) *
-                Matrix4::from_scale(0.5);
+            let pos_from_obj_to_wld_space = Matrix4::from_translation(light_pos_in_wld_space) *
+                Matrix4::from_scale(0.2);
             let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
             let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
 
