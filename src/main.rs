@@ -153,7 +153,7 @@ fn main() {
             gl::STATIC_DRAW,
         );
 
-        // Unnecessary.
+        // This would be a mistake.
         // gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0 as GLuint);
 
         // Unnecessary.
