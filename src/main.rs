@@ -224,11 +224,67 @@ fn main() {
         tex_id
     };
 
+    // Set up texture location for program.
     program.use_program();
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("tex_color"));
+        gl::Uniform1i(loc, 0);
+    }
+
+    let light_program = {
+        let vertex_shader = shader::specialization::VertexShaderId::new()
+            .unwrap()
+            .compile(&[file_to_string("assets/light.vert").unwrap()])
+            .unwrap();
+        let fragment_shader = shader::specialization::FragmentShaderId::new()
+            .unwrap()
+            .compile(&[file_to_string("assets/light.frag").unwrap()])
+            .unwrap();
+        let program = program::ProgramId::new().unwrap();
+        program.attach(&vertex_shader);
+        program.attach(&fragment_shader);
+        program.link().unwrap()
+    };
+
+    let light_mesh = import::import_obj("assets/icosphere-80.obj").expect("Failed to import obj");
+
+    let light_vertex_array = glw::VertexArray::new().unwrap();
+    let light_vertex_buffer = glw::VertexBuffer::new().unwrap();
+    let light_elements_buffer = glw::VertexBuffer::new().unwrap();
 
     unsafe {
-        let tex_unif = gl::GetUniformLocation(program.as_uint(), c_str!("tex_color"));
-        gl::Uniform1i(tex_unif, 0);
+        gl::BindVertexArray(light_vertex_array.id().as_uint());
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, light_vertex_buffer.id().as_uint());
+
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            mem::size_of_val(&light_mesh.elements[..]) as GLsizeiptr,
+            light_mesh.elements.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW,
+        );
+
+        gl::VertexAttribPointer(
+            0,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<import::VertexData>() as GLsizei,
+            field_offset!(import::VertexData, vertex_position) as *const GLvoid,
+        );
+        gl::EnableVertexAttribArray(0);
+
+        gl::BindBuffer(
+            gl::ELEMENT_ARRAY_BUFFER,
+            light_elements_buffer.id().as_uint(),
+        );
+
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            mem::size_of_val(&light_mesh.indices[..]) as GLsizeiptr,
+            light_mesh.indices.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW,
+        );
     }
 
     let start = time::Instant::now();
@@ -253,6 +309,8 @@ fn main() {
     while running {
 
         let now = time::Instant::now();
+
+        let delta_start = duration_to_seconds(now.duration_since(start)) as f32;
 
         // Update FPS.
         frame_count += 1;
@@ -355,6 +413,7 @@ fn main() {
         let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
             Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
 
+
         // Render.
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -364,28 +423,85 @@ fn main() {
 
             program.use_program();
 
+            let pos_from_wld_to_cam_space = Matrix4::from(camera_rot.invert()) *
+                Matrix4::from_translation(-camera_pos);
+
+            let pos_from_cam_to_clp_space = Matrix4::from(PerspectiveFov {
+                fovy: camera_fov,
+                aspect: camera_aspect,
+                near: INITIAL_NEAR,
+                far: INITIAL_FAR,
+            });
+
+            let light_pos_in_obj_space = Vector3::new(3.0, 2.0, 1.0);
+
+            let pos_from_obj_to_wld_space =
+                Matrix4::from_translation(Vector3::new(-2.0, 0.0, 0.0)) *
+                    Matrix4::from_nonuniform_scale(1.0, 3.0, 1.0) *
+                    Matrix4::from_angle_y(Deg(delta_start * 90.0));
+
+            let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
+            let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
+
             {
-                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("cam_to_obj"));
-                let wrld_to_obj = Matrix4::from_translation(Vector3::zero());
-                let cam_to_wrld = Matrix4::from(camera_rot.invert()) *
-                    Matrix4::from_translation(-camera_pos);
-                let cam_to_obj = cam_to_wrld * wrld_to_obj;
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, cam_to_obj.as_ptr());
+                let loc =
+                    gl::GetUniformLocation(program.as_uint(), c_str!("pos_from_obj_to_cam_space"));
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_cam_space.as_ptr());
             }
 
             {
-                let loc = gl::GetUniformLocation(program.as_uint(), c_str!("projection"));
-                let projection_transform = Matrix4::from(PerspectiveFov {
-                    fovy: camera_fov,
-                    aspect: camera_aspect,
-                    near: INITIAL_NEAR,
-                    far: INITIAL_FAR,
-                });
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, projection_transform.as_ptr());
+                // FIXME: Create 3x3 matrix instead of 4x4. We don't care about translation.
+                let nor_from_obj_to_wld_space =
+                    pos_from_obj_to_wld_space.invert().unwrap().transpose();
+                let loc =
+                    gl::GetUniformLocation(program.as_uint(), c_str!("nor_from_obj_to_cam_space"));
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, nor_from_obj_to_wld_space.as_ptr());
+            }
+
+            {
+                let loc =
+                    gl::GetUniformLocation(program.as_uint(), c_str!("pos_from_obj_to_clp_space"));
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
+            }
+
+            {
+                let light_pos_in_cam_space =
+                    (pos_from_wld_to_cam_space * light_pos_in_obj_space.extend(1.0)).truncate();
+                let loc =
+                    gl::GetUniformLocation(program.as_uint(), c_str!("light_pos_in_cam_space"));
+                gl::Uniform3fv(loc, 1, light_pos_in_cam_space.as_ptr());
             }
 
             gl::BindVertexArray(va.id().as_uint());
-            gl::DrawElements(gl::TRIANGLES, (3 * mesh.indices.len()) as GLsizei, gl::UNSIGNED_INT, std::ptr::null());
+            gl::DrawElements(
+                gl::TRIANGLES,
+                (3 * mesh.indices.len()) as GLsizei,
+                gl::UNSIGNED_INT,
+                std::ptr::null(),
+            );
+
+            light_program.use_program();
+
+            let pos_from_obj_to_wld_space = Matrix4::from_translation(light_pos_in_obj_space) *
+                Matrix4::from_scale(0.5);
+            let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
+            let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
+
+            {
+                let loc = gl::GetUniformLocation(
+                    light_program.as_uint(),
+                    c_str!("pos_from_obj_to_clp_space"),
+                );
+                gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
+            }
+
+            gl::BindVertexArray(light_vertex_array.id().as_uint());
+            gl::DrawElements(
+                gl::TRIANGLES,
+                (3 * light_mesh.indices.len()) as GLsizei,
+                gl::UNSIGNED_INT,
+                std::ptr::null(),
+            );
         }
 
         gl_window.swap_buffers().unwrap();
