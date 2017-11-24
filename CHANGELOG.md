@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Link to 0.1.0 in changelog
 
 ## [0.1.0] - 2017-11-25
 ### Added
@@ -15,3 +17,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - A few toy models
 
 [Unreleased]: https://github.com/mickvangelderen/opengl-rust/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/mickvangelderen/opengl-rust/tree/v0.1.0
