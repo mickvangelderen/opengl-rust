@@ -7,7 +7,6 @@ out vec2 vs_tex;
 out vec3 vs_nor_in_cam_space;
 out vec3 vs_pos_in_cam_space;
 
-uniform vec3 light_pos_in_cam_space;
 uniform mat4 pos_from_obj_to_cam_space;
 uniform mat4 nor_from_obj_to_cam_space;
 uniform mat4 pos_from_obj_to_clp_space;
