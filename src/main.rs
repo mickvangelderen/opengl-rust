@@ -120,7 +120,7 @@ fn main() {
             gl::FLOAT,
             gl::FALSE,
             mem::size_of::<import::VertexData>() as GLsizei,
-            field_offset!(import::VertexData, xyz) as *const GLvoid,
+            field_offset!(import::VertexData, vertex_position) as *const GLvoid,
         );
         gl::EnableVertexAttribArray(0);
 
@@ -130,9 +130,19 @@ fn main() {
             gl::FLOAT,
             gl::FALSE,
             mem::size_of::<import::VertexData>() as GLsizei,
-            field_offset!(import::VertexData, uv) as *const GLvoid,
+            field_offset!(import::VertexData, texture_position) as *const GLvoid,
         );
         gl::EnableVertexAttribArray(1);
+
+        gl::VertexAttribPointer(
+            2,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<import::VertexData>() as GLsizei,
+            field_offset!(import::VertexData, vertex_normal) as *const GLvoid,
+        );
+        gl::EnableVertexAttribArray(2);
 
         gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ve.id().as_uint());
 

@@ -17,15 +17,17 @@ pub struct Mesh {
 #[derive(PartialEq, Copy, Clone, Debug)]
 #[repr(C, packed)]
 struct TriangleElement {
-    xyz_index: GLuint,
-    uv_index: GLuint,
+    vertex_position_index: GLuint,
+    texture_position_index: GLuint,
+    vertex_normal_index: GLuint,
 }
 
 #[derive(Debug)]
 #[repr(C, packed)]
 pub struct VertexData {
-    pub xyz: Vector3<GLfloat>,
-    pub uv: Vector2<GLfloat>,
+    pub vertex_position: Vector3<GLfloat>,
+    pub texture_position: Vector2<GLfloat>,
+    pub vertex_normal: Vector3<GLfloat>,
 }
 
 pub fn import_obj<P: AsRef<Path>>(path: P) -> io::Result<Mesh> {
@@ -33,8 +35,10 @@ pub fn import_obj<P: AsRef<Path>>(path: P) -> io::Result<Mesh> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
 
-    let mut xyzs = Vec::new();
-    let mut uvs = Vec::new();
+    let mut vertex_positions: Vec<Vector3<GLfloat>> = Vec::new();
+    let mut vertex_normals: Vec<Vector3<GLfloat>> = Vec::new();
+    let mut texture_positions: Vec<Vector2<GLfloat>> = Vec::new();
+
     let mut triangles = Vec::new();
 
     for line in contents.lines() {
@@ -42,20 +46,26 @@ pub fn import_obj<P: AsRef<Path>>(path: P) -> io::Result<Mesh> {
         match parts.next() {
             Some("v") => {
                 // Parse "v 0.397429 3.307064 0.397429"
-                let xyz: Vector3<GLfloat> = Vector3::new(
+                vertex_positions.push(Vector3::new(
                     parts.next().unwrap().parse().unwrap(),
                     parts.next().unwrap().parse().unwrap(),
                     parts.next().unwrap().parse().unwrap(),
-                );
-                xyzs.push(xyz);
+                ));
+            }
+            Some("vn") => {
+                // Parse "vn 0.6133 -0.1738 0.7705"
+                vertex_normals.push(Vector3::new(
+                    parts.next().unwrap().parse().unwrap(),
+                    parts.next().unwrap().parse().unwrap(),
+                    parts.next().unwrap().parse().unwrap(),
+                ));
             }
             Some("vt") => {
                 // Parse "vt 0.532019 0.081125"
-                let uv: Vector2<GLfloat> = Vector2::new(
+                texture_positions.push(Vector2::new(
                     parts.next().unwrap().parse().unwrap(),
                     parts.next().unwrap().parse().unwrap(),
-                );
-                uvs.push(uv);
+                ));
             }
             Some("f") => {
                 // Parse "f 1/1 2/2 4/3" (triangle with mesh/tex indices).
@@ -64,8 +74,9 @@ pub fn import_obj<P: AsRef<Path>>(path: P) -> io::Result<Mesh> {
                 for i in 0..tri.len() {
                     let mut ind = parts.next().unwrap().split('/');
                     tri[i] = TriangleElement {
-                        xyz_index: ind.next().unwrap().parse::<GLuint>().unwrap() - 1,
-                        uv_index: ind.next().unwrap().parse::<GLuint>().unwrap() - 1,
+                        vertex_position_index: ind.next().unwrap().parse::<GLuint>().unwrap() - 1,
+                        texture_position_index: ind.next().unwrap().parse::<GLuint>().unwrap() - 1,
+                        vertex_normal_index: ind.next().unwrap().parse::<GLuint>().unwrap() - 1,
                     }
                 }
 
@@ -86,8 +97,9 @@ pub fn import_obj<P: AsRef<Path>>(path: P) -> io::Result<Mesh> {
         .iter()
         .map(|element| {
             VertexData {
-                xyz: xyzs[element.xyz_index as usize],
-                uv: uvs[element.uv_index as usize],
+                vertex_position: vertex_positions[element.vertex_position_index as usize],
+                texture_position: texture_positions[element.texture_position_index as usize],
+                vertex_normal: vertex_normals[element.vertex_normal_index as usize],
             }
         })
         .collect();
