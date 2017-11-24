@@ -77,13 +77,13 @@ fn main() {
     }
 
     let program = {
-        let vertex_src = file_to_string("assets/vertex-shader.glsl").unwrap();
+        let vertex_src = file_to_string("assets/standard.vert").unwrap();
         let vertex_shader = shader::specialization::VertexShaderId::new()
             .expect("Failed to acquire vertex shader id.")
             .compile(&[vertex_src])
             .expect("Failed to compile vertex shader.");
 
-        let fragment_src = file_to_string("assets/fragment-shader.glsl").unwrap();
+        let fragment_src = file_to_string("assets/standard.frag").unwrap();
         let fragment_shader = shader::specialization::FragmentShaderId::new()
             .expect("Failed to acquire fragment shader id.")
             .compile(&[fragment_src])
