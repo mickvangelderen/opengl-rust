@@ -3,7 +3,6 @@ extern crate core;
 
 use core::nonzero::NonZero;
 use gl::types::{GLuint, GLint, GLchar};
-use std::ptr;
 
 use super::shader;
 
@@ -25,35 +24,35 @@ impl ProgramId {
             gl::LinkProgram(self.as_uint());
         }
 
-        let mut status = gl::FALSE as GLint;
-
-        unsafe {
+        let status = unsafe {
+            let mut status = gl::FALSE as GLint;
             gl::GetProgramiv(self.as_uint(), gl::LINK_STATUS, &mut status);
-        }
+            status
+        };
 
         if status != (gl::TRUE as GLint) {
-            let mut len = 0;
+            let capacity = unsafe {
+                let mut capacity: GLint = 0;
+                gl::GetProgramiv(self.as_uint(), gl::INFO_LOG_LENGTH, &mut capacity);
+                assert!(capacity >= 0);
+                capacity
+            };
 
-            unsafe {
-                gl::GetProgramiv(self.as_uint(), gl::INFO_LOG_LENGTH, &mut len);
-            }
-
-            let mut buf = Vec::with_capacity(len as usize);
-
-            unsafe {
-                buf.set_len((len as usize) - 1);
-            }
-
-            unsafe {
+            let buffer = unsafe {
+                let mut buffer: Vec<u8> = Vec::with_capacity(capacity as usize);
+                let mut length: GLint = 0;
                 gl::GetProgramInfoLog(
                     self.as_uint(),
-                    len,
-                    ptr::null_mut(),
-                    buf.as_mut_ptr() as *mut GLchar,
+                    capacity,
+                    &mut length,
+                    buffer.as_mut_ptr() as *mut GLchar,
                 );
-            }
+                assert!(length >= 0 && length <= capacity);
+                buffer.set_len(length as usize);
+                buffer
+            };
 
-            Err(String::from_utf8(buf).expect(
+            Err(String::from_utf8(buffer).expect(
                 "Program info log is not utf8",
             ))
         } else {

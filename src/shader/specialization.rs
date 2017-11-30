@@ -115,12 +115,12 @@ mod tests {
     fn as_ref_example() {
         let vs_id = VertexShaderId::new()
             .unwrap()
-            .compile(&[ String::default() ])
+            .compile(&[String::default()])
             .unwrap();
 
         let fs_id = FragmentShaderId::new()
             .unwrap()
-            .compile(&[ String::default() ])
+            .compile(&[String::default()])
             .unwrap();
 
         let _ids: [&super::super::CompiledShaderId; 2] = [vs_id.as_ref(), fs_id.as_ref()];
