@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `BufferTarget` enum.
 - `bind` method to VertexBuffer.
 
+### Changed
+- `ProgramId::attach` is now performed by `ProgramId::link`.
+- Renamed `ProgramId::use_program` to `ProgramId::bind`.
+
 ## [0.1.0] - 2017-11-25
 ### Added
 - Changelog.

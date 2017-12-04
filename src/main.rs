@@ -100,10 +100,9 @@ fn main() {
             .expect("Failed to compile fragment shader.");
 
         let program = program::ProgramId::new().expect("Failed to acquire program id.");
-
-        program.attach(&vertex_shader);
-        program.attach(&fragment_shader);
-        program.link().expect("Failed to link program.")
+        program
+            .link(&[vertex_shader.as_ref(), fragment_shader.as_ref()])
+            .expect("Failed to link program.")
     };
 
     let mesh = import::import_obj("assets/monster.obj").expect("Failed to import monster.obj");
@@ -234,7 +233,7 @@ fn main() {
     };
 
     // Set up texture location for program.
-    program.use_program();
+    program.bind();
     unsafe {
         let loc = gl::GetUniformLocation(program.as_uint(), c_str!("tex_color"));
         gl::Uniform1i(loc, 0);
@@ -250,9 +249,9 @@ fn main() {
             .compile(&[file_to_string("assets/light.frag").unwrap()])
             .unwrap();
         let program = program::ProgramId::new().unwrap();
-        program.attach(&vertex_shader);
-        program.attach(&fragment_shader);
-        program.link().unwrap()
+        program
+            .link(&[vertex_shader.as_ref(), fragment_shader.as_ref()])
+            .unwrap()
     };
 
     let light_mesh = import::import_obj("assets/icosphere-80.obj").expect("Failed to import obj");
@@ -424,7 +423,7 @@ fn main() {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, tex_id.as_uint());
 
-            program.use_program();
+            program.bind();
 
             let pos_from_wld_to_cam_space = Matrix4::from(camera_rot.invert()) *
                 Matrix4::from_translation(-camera_pos);
@@ -483,7 +482,7 @@ fn main() {
                 std::ptr::null(),
             );
 
-            light_program.use_program();
+            light_program.bind();
 
             let pos_from_obj_to_wld_space = Matrix4::from_translation(light_pos_in_wld_space) *
                 Matrix4::from_scale(0.2);

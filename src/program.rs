@@ -2,10 +2,11 @@ extern crate gl;
 extern crate core;
 
 use core::nonzero::NonZero;
-use gl::types::{GLuint, GLint, GLchar};
+use gl::types::{GLuint, GLint, GLchar, GLsizei};
 
-use super::shader;
+use super::shader::CompiledShaderId;
 
+#[derive(Debug)]
 pub struct ProgramId(NonZero<GLuint>);
 
 impl ProgramId {
@@ -13,13 +14,17 @@ impl ProgramId {
         NonZero::new(unsafe { gl::CreateProgram() }).map(ProgramId)
     }
 
-    pub fn attach<T: AsRef<shader::CompiledShaderId>>(&self, shader_id: T) {
-        unsafe {
-            gl::AttachShader(self.as_uint(), shader_id.as_ref().as_uint());
-        }
+    pub unsafe fn as_uint(&self) -> GLuint {
+        (self.0).get()
     }
 
-    pub fn link(self) -> Result<LinkedProgramId, String> {
+    pub fn link(self, shaders: &[&CompiledShaderId]) -> Result<LinkedProgramId, String> {
+        for shader in shaders {
+            unsafe {
+                gl::AttachShader(self.as_uint(), shader.as_uint());
+            }
+        }
+
         unsafe {
             gl::LinkProgram(self.as_uint());
         }
@@ -30,7 +35,9 @@ impl ProgramId {
             status
         };
 
-        if status != (gl::TRUE as GLint) {
+        if status == (gl::TRUE as GLint) {
+            Ok(LinkedProgramId(self))
+        } else {
             let capacity = unsafe {
                 let mut capacity: GLint = 0;
                 gl::GetProgramiv(self.as_uint(), gl::INFO_LOG_LENGTH, &mut capacity);
@@ -40,7 +47,7 @@ impl ProgramId {
 
             let buffer = unsafe {
                 let mut buffer: Vec<u8> = Vec::with_capacity(capacity as usize);
-                let mut length: GLint = 0;
+                let mut length: GLsizei = 0;
                 gl::GetProgramInfoLog(
                     self.as_uint(),
                     capacity,
@@ -55,13 +62,7 @@ impl ProgramId {
             Err(String::from_utf8(buffer).expect(
                 "Program info log is not utf8",
             ))
-        } else {
-            Ok(LinkedProgramId(self))
         }
-    }
-
-    pub unsafe fn as_uint(&self) -> GLuint {
-        (self.0).get()
     }
 }
 
@@ -73,16 +74,15 @@ impl Drop for ProgramId {
     }
 }
 
+#[derive(Debug)]
 pub struct LinkedProgramId(ProgramId);
 
 impl LinkedProgramId {
-    pub fn use_program(&self) {
-        unsafe {
-            gl::UseProgram(self.as_uint());
-        }
-    }
-
     pub unsafe fn as_uint(&self) -> GLuint {
         self.0.as_uint()
+    }
+
+    pub fn bind(&self) {
+        unsafe { gl::UseProgram(self.as_uint()) }
     }
 }
