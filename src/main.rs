@@ -19,9 +19,15 @@ pub mod vertex_buffer;
 pub mod vertex_array;
 pub mod viewport;
 
-use vertex_buffer::VertexBuffer;
-use vertex_array::VertexArray;
-use viewport::Viewport;
+// use shader::*;
+use shader::specialization::*;
+use program::*;
+// use import::*;
+// use palette::*;
+use texture::*;
+use vertex_buffer::*;
+use vertex_array::*;
+use viewport::*;
 
 use cgmath::prelude::*;
 use cgmath::*;
@@ -88,18 +94,18 @@ fn main() {
 
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
-        let vertex_shader = shader::specialization::VertexShaderId::new()
+        let vertex_shader = VertexShaderId::new()
             .expect("Failed to acquire vertex shader id.")
             .compile(&[&vertex_src])
             .expect("Failed to compile vertex shader.");
 
         let fragment_src = file_to_string("assets/standard.frag").unwrap();
-        let fragment_shader = shader::specialization::FragmentShaderId::new()
+        let fragment_shader = FragmentShaderId::new()
             .expect("Failed to acquire fragment shader id.")
             .compile(&[&fragment_src])
             .expect("Failed to compile fragment shader.");
 
-        let program = program::ProgramId::new().expect("Failed to acquire program id.");
+        let program = ProgramId::new().expect("Failed to acquire program id.");
         program
             .link(&[vertex_shader.as_ref(), fragment_shader.as_ref()])
             .expect("Failed to link program.")
@@ -107,14 +113,14 @@ fn main() {
 
     let mesh = import::import_obj("assets/monster.obj").expect("Failed to import monster.obj");
 
-    let va = VertexArray::new().unwrap();
-    let vb = VertexBuffer::new().unwrap();
-    let ve = VertexBuffer::new().unwrap();
+    let va = VertexArrayId::new().unwrap();
+    let vb = VertexBufferId::new().unwrap();
+    let ve = VertexBufferId::new().unwrap();
 
     unsafe {
-        gl::BindVertexArray(va.id().as_uint());
+        va.bind();
 
-        gl::BindBuffer(gl::ARRAY_BUFFER, vb.id().as_uint());
+        vb.bind(BufferTarget::ArrayBuffer);
 
         gl::BufferData(
             gl::ARRAY_BUFFER,
@@ -153,7 +159,7 @@ fn main() {
         );
         gl::EnableVertexAttribArray(2);
 
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ve.id().as_uint());
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ve.as_uint());
 
         gl::BufferData(
             gl::ELEMENT_ARRAY_BUFFER,
@@ -161,18 +167,9 @@ fn main() {
             mesh.indices.as_ptr() as *const GLvoid,
             gl::STATIC_DRAW,
         );
-
-        // This would be a mistake.
-        // gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0 as GLuint);
-
-        // Unnecessary.
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0 as GLuint);
-
-        // Unnecessary.
-        gl::BindVertexArray(0 as GLuint);
     }
 
-    let tex_id: texture::TextureId = {
+    let tex_id: TextureId = {
         let file = fs::File::open("assets/monster-diffuse.jpg").unwrap();
         let buf_file = io::BufReader::new(file);
         let mut decoder = jpeg::Decoder::new(buf_file);
@@ -198,7 +195,7 @@ fn main() {
             buffer
         };
 
-        let mut tex_id = texture::TextureId::new().unwrap();
+        let mut tex_id = TextureId::new().unwrap();
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, tex_id.as_uint());
 
@@ -240,15 +237,15 @@ fn main() {
     }
 
     let light_program = {
-        let vertex_shader = shader::specialization::VertexShaderId::new()
+        let vertex_shader = VertexShaderId::new()
             .unwrap()
             .compile(&[&file_to_string("assets/light.vert").unwrap()])
             .unwrap();
-        let fragment_shader = shader::specialization::FragmentShaderId::new()
+        let fragment_shader = FragmentShaderId::new()
             .unwrap()
             .compile(&[&file_to_string("assets/light.frag").unwrap()])
             .unwrap();
-        let program = program::ProgramId::new().unwrap();
+        let program = ProgramId::new().unwrap();
         program
             .link(&[vertex_shader.as_ref(), fragment_shader.as_ref()])
             .unwrap()
@@ -256,14 +253,14 @@ fn main() {
 
     let light_mesh = import::import_obj("assets/icosphere-80.obj").expect("Failed to import obj");
 
-    let light_vertex_array = VertexArray::new().unwrap();
-    let light_vertex_buffer = VertexBuffer::new().unwrap();
-    let light_elements_buffer = VertexBuffer::new().unwrap();
+    let light_vertex_array = VertexArrayId::new().unwrap();
+    let light_vertex_buffer = VertexBufferId::new().unwrap();
+    let light_elements_buffer = VertexBufferId::new().unwrap();
 
     unsafe {
-        gl::BindVertexArray(light_vertex_array.id().as_uint());
+        light_vertex_array.bind();
 
-        gl::BindBuffer(gl::ARRAY_BUFFER, light_vertex_buffer.id().as_uint());
+        gl::BindBuffer(gl::ARRAY_BUFFER, light_vertex_buffer.as_uint());
 
         gl::BufferData(
             gl::ARRAY_BUFFER,
@@ -284,7 +281,7 @@ fn main() {
 
         gl::BindBuffer(
             gl::ELEMENT_ARRAY_BUFFER,
-            light_elements_buffer.id().as_uint(),
+            light_elements_buffer.as_uint(),
         );
 
         gl::BufferData(
@@ -474,7 +471,8 @@ fn main() {
                 gl::Uniform3fv(loc, 1, light_pos_in_cam_space.as_ptr());
             }
 
-            gl::BindVertexArray(va.id().as_uint());
+            va.bind();
+
             gl::DrawElements(
                 gl::TRIANGLES,
                 (3 * mesh.indices.len()) as GLsizei,
@@ -497,7 +495,8 @@ fn main() {
                 gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
             }
 
-            gl::BindVertexArray(light_vertex_array.id().as_uint());
+            light_vertex_array.bind();
+
             gl::DrawElements(
                 gl::TRIANGLES,
                 (3 * light_mesh.indices.len()) as GLsizei,
