@@ -21,6 +21,7 @@ pub mod viewport;
 
 use vertex_buffer::VertexBuffer;
 use vertex_array::VertexArray;
+use viewport::Viewport;
 
 use cgmath::prelude::*;
 use cgmath::*;
@@ -53,18 +54,21 @@ fn duration_to_seconds(duration: time::Duration) -> f64 {
 }
 
 fn main() {
-    const INITIAL_WIDTH: u32 = 1024;
-    const INITIAL_HEIGHT: u32 = 768;
     const INITIAL_FOVY: Rad<GLfloat> = Rad(45.0 * 3.1415 / 180.0);
     const INITIAL_NEAR: GLfloat = 0.1;
     const INITIAL_FAR: GLfloat = 100.0;
+
+    let mut viewport = Viewport::new(1024, 768);
 
     let mut events_loop = glutin::EventsLoop::new();
 
     let gl_window = glutin::GlWindow::new(
         glutin::WindowBuilder::new()
             .with_title("rust-opengl")
-            .with_dimensions(INITIAL_WIDTH, INITIAL_HEIGHT),
+            .with_dimensions(
+                viewport.width().abs() as u32,
+                viewport.height().abs() as u32,
+            ),
         glutin::ContextBuilder::new()
             .with_vsync(true)
             .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3)))
@@ -309,7 +313,6 @@ fn main() {
     let mut camera_pitch: Rad<GLfloat> = Rad(0.0);
     let mut camera_yaw: Rad<GLfloat> = Rad(0.0);
     let mut camera_fov = INITIAL_FOVY;
-    let mut camera_aspect = (INITIAL_WIDTH as GLfloat) / (INITIAL_HEIGHT as GLfloat);
 
     while running {
 
@@ -342,11 +345,7 @@ fn main() {
                     glutin::WindowEvent::Closed => running = false,
                     glutin::WindowEvent::Resized(w, h) => {
                         gl_window.resize(w, h);
-                        unsafe {
-                            gl::Viewport(0, 0, w as i32, h as i32);
-                        }
-
-                        camera_aspect = (w as GLfloat) / (h as GLfloat);
+                        viewport.update().width(w as GLsizei).height(h as GLsizei);
                     }
 
                     glutin::WindowEvent::KeyboardInput { input, .. } => {
@@ -432,7 +431,7 @@ fn main() {
 
             let pos_from_cam_to_clp_space = Matrix4::from(PerspectiveFov {
                 fovy: camera_fov,
-                aspect: camera_aspect,
+                aspect: viewport.aspect(),
                 near: INITIAL_NEAR,
                 far: INITIAL_FAR,
             });
