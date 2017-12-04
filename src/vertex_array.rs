@@ -4,9 +4,14 @@ extern crate gl;
 use gl::types::*;
 use core::nonzero::NonZero;
 
+#[derive(Debug)]
 pub struct VertexArrayId(NonZero<GLuint>);
 
 impl VertexArrayId {
+    pub unsafe fn as_uint(&self) -> GLuint {
+        (self.0).get()
+    }
+
     pub fn new() -> Option<Self> {
         NonZero::new(unsafe {
             let mut ids: [GLuint; 1] = [0];
@@ -15,8 +20,10 @@ impl VertexArrayId {
         }).map(VertexArrayId)
     }
 
-    pub unsafe fn as_uint(&self) -> GLuint {
-        (self.0).get()
+    pub fn bind(&self) {
+        unsafe {
+            gl::BindVertexArray(self.as_uint());
+        }
     }
 }
 
