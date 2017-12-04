@@ -164,7 +164,7 @@ fn main() {
         gl::BindVertexArray(0 as GLuint);
     }
 
-    let tex_id: GLuint = {
+    let tex_id: texture::TextureId = {
         let file = fs::File::open("assets/monster-diffuse.jpg").unwrap();
         let buf_file = io::BufReader::new(file);
         let mut decoder = jpeg::Decoder::new(buf_file);
@@ -190,10 +190,9 @@ fn main() {
             buffer
         };
 
-        let mut tex_id = 0;
+        let mut tex_id = texture::TextureId::new().unwrap();
         unsafe {
-            gl::GenTextures(1, &mut tex_id);
-            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id.as_uint());
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
@@ -419,7 +418,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id.as_uint());
 
             program.use_program();
 
