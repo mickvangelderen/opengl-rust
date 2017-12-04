@@ -10,12 +10,16 @@ extern crate cgmath;
 #[macro_use(field_offset)]
 extern crate simple_field_offset;
 
-pub mod glw;
 pub mod shader;
 pub mod program;
 pub mod import;
 pub mod palette;
 pub mod texture;
+pub mod vertex_buffer;
+pub mod vertex_array;
+
+use vertex_buffer::VertexBuffer;
+use vertex_array::VertexArray;
 
 use cgmath::prelude::*;
 use cgmath::*;
@@ -99,9 +103,9 @@ fn main() {
 
     let mesh = import::import_obj("assets/monster.obj").expect("Failed to import monster.obj");
 
-    let va = glw::VertexArray::new().unwrap();
-    let vb = glw::VertexBuffer::new().unwrap();
-    let ve = glw::VertexBuffer::new().unwrap();
+    let va = VertexArray::new().unwrap();
+    let vb = VertexBuffer::new().unwrap();
+    let ve = VertexBuffer::new().unwrap();
 
     unsafe {
         gl::BindVertexArray(va.id().as_uint());
@@ -248,9 +252,9 @@ fn main() {
 
     let light_mesh = import::import_obj("assets/icosphere-80.obj").expect("Failed to import obj");
 
-    let light_vertex_array = glw::VertexArray::new().unwrap();
-    let light_vertex_buffer = glw::VertexBuffer::new().unwrap();
-    let light_elements_buffer = glw::VertexBuffer::new().unwrap();
+    let light_vertex_array = VertexArray::new().unwrap();
+    let light_vertex_buffer = VertexBuffer::new().unwrap();
+    let light_elements_buffer = VertexBuffer::new().unwrap();
 
     unsafe {
         gl::BindVertexArray(light_vertex_array.id().as_uint());
