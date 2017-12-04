@@ -15,6 +15,7 @@ pub mod shader;
 pub mod program;
 pub mod import;
 pub mod palette;
+pub mod texture;
 
 use cgmath::prelude::*;
 use cgmath::*;
