@@ -30,22 +30,16 @@ impl ShaderId {
         self.0.get()
     }
 
-    pub fn compile<T: AsRef<str>>(self, sources: &[T]) -> Result<CompiledShaderId, String> {
-        let source_ptrs: Vec<*const GLchar> = sources
-            .iter()
-            .map(|source| source.as_ref().as_ptr() as *const GLchar)
-            .collect();
-        let source_lens: Vec<GLint> = sources
-            .iter()
-            .map(|source| source.as_ref().len() as GLint)
-            .collect();
+    pub fn compile(self, sources: &[&str]) -> Result<CompiledShaderId, String> {
+        let source_lengths: Vec<GLint> =
+            sources.iter().map(|source| source.len() as GLint).collect();
 
         unsafe {
             gl::ShaderSource(
                 self.as_uint(),
                 sources.len() as GLint,
-                source_ptrs.as_ptr(),
-                source_lens.as_ptr(),
+                sources.as_ptr() as *const *const GLchar,
+                source_lengths.as_ptr(),
             );
             gl::CompileShader(self.as_uint());
         }
@@ -66,7 +60,7 @@ impl ShaderId {
 
             let buffer = unsafe {
                 let mut buffer: Vec<u8> = Vec::with_capacity(capacity as usize);
-                let mut length: GLint = 0;
+                let mut length: GLsizei = 0;
                 gl::GetShaderInfoLog(
                     self.as_uint(),
                     capacity,

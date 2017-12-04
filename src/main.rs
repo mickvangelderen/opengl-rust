@@ -90,13 +90,13 @@ fn main() {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
         let vertex_shader = shader::specialization::VertexShaderId::new()
             .expect("Failed to acquire vertex shader id.")
-            .compile(&[vertex_src])
+            .compile(&[&vertex_src])
             .expect("Failed to compile vertex shader.");
 
         let fragment_src = file_to_string("assets/standard.frag").unwrap();
         let fragment_shader = shader::specialization::FragmentShaderId::new()
             .expect("Failed to acquire fragment shader id.")
-            .compile(&[fragment_src])
+            .compile(&[&fragment_src])
             .expect("Failed to compile fragment shader.");
 
         let program = program::ProgramId::new().expect("Failed to acquire program id.");
@@ -242,11 +242,11 @@ fn main() {
     let light_program = {
         let vertex_shader = shader::specialization::VertexShaderId::new()
             .unwrap()
-            .compile(&[file_to_string("assets/light.vert").unwrap()])
+            .compile(&[&file_to_string("assets/light.vert").unwrap()])
             .unwrap();
         let fragment_shader = shader::specialization::FragmentShaderId::new()
             .unwrap()
-            .compile(&[file_to_string("assets/light.frag").unwrap()])
+            .compile(&[&file_to_string("assets/light.frag").unwrap()])
             .unwrap();
         let program = program::ProgramId::new().unwrap();
         program

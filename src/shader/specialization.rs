@@ -42,7 +42,7 @@ impl<Kind: ShaderKindMarker> ShaderId<Kind> {
     }
 
     #[inline]
-    pub fn compile<T: AsRef<str>>(self, sources: &[T]) -> Result<CompiledShaderId<Kind>, String> {
+    pub fn compile(self, sources: &[&str]) -> Result<CompiledShaderId<Kind>, String> {
         self.0.compile(sources).map(|id| {
             CompiledShaderId(id, PhantomData)
         })

@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - `ProgramId::attach` is now performed by `ProgramId::link`.
 - Renamed `ProgramId::use_program` to `ProgramId::bind`.
+- `ShaderId::compile` and friends now take `sources: &[&str]` as a parameter
+  instead of `sources: &[T]` where `T: AsRef<str>`. The old signature would not
+  allow `compile(&[a, b])` where `a` and `b` have different types that both do
+  implement `AsRef<str>`, requiring the caller to type `compile(&[a.as_ref(),
+  b.as_ref()])`. If that is a common case, we might as well have the parameter
+  be `&[&str]` to keep things simple.
 
 ## [0.1.0] - 2017-11-25
 ### Added
