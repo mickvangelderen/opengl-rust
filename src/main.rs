@@ -17,6 +17,7 @@ pub mod palette;
 pub mod texture;
 pub mod vertex_buffer;
 pub mod vertex_array;
+pub mod viewport;
 
 use vertex_buffer::VertexBuffer;
 use vertex_array::VertexArray;
