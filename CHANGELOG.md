@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Link to 0.1.0 in changelog.
 - `bind` method to VertexArray.
 - Derived `Debug` implementations.
+- `BufferTarget` enum.
+- `bind` method to VertexBuffer.
 
 ## [0.1.0] - 2017-11-25
 ### Added
