@@ -88,7 +88,7 @@ fn main() {
 
     unsafe {
         gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
-        gl::ClearColor(0.5, 0.5, 0.5, 1.0);
+        gl::ClearColor(0.7, 0.8, 0.9, 1.0);
         gl::Enable(gl::DEPTH_TEST);
     }
 
@@ -283,12 +283,12 @@ fn main() {
 
     unsafe {
         let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.diffuse"));
-        gl::Uniform3f(loc, 1.0, 1.0, 1.0);
+        gl::Uniform3f(loc, 2.0, 2.0, 2.0);
     }
 
     unsafe {
         let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.specular"));
-        gl::Uniform3f(loc, 1.0, 1.0, 1.0);
+        gl::Uniform3f(loc, 4.0, 4.0, 4.0);
     }
 
     unsafe {
@@ -298,12 +298,22 @@ fn main() {
 
     unsafe {
         let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.attenuation_linear"));
-        gl::Uniform1f(loc, 0.09);
+        gl::Uniform1f(loc, 0.030);
     }
 
     unsafe {
         let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.attenuation_quadratic"));
-        gl::Uniform1f(loc, 0.03);
+        gl::Uniform1f(loc, 0.010);
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.cos_angle_inner"));
+        gl::Uniform1f(loc, Deg(14.0).cos());
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.cos_angle_outer"));
+        gl::Uniform1f(loc, Deg(17.0).cos());
     }
 
     let light_program = {
@@ -505,9 +515,8 @@ fn main() {
             let light_pos_in_wld_space = Quaternion::from_angle_y(Deg(delta_start * 90.0))
                 .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
 
-            let pos_from_obj_to_wld_space =
-                Matrix4::from_translation(Vector3::new(-1.0, 0.0, 0.0)) *
-                    Matrix4::from_angle_y(Deg(delta_start * 20.0));
+            let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero()) *
+                Matrix4::from_angle_y(Deg(delta_start * 20.0));
 
             let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
             let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
@@ -539,6 +548,15 @@ fn main() {
                 let loc =
                     gl::GetUniformLocation(program.as_uint(), c_str!("light.pos_in_cam_space"));
                 gl::Uniform3fv(loc, 1, light_pos_in_cam_space.as_ptr());
+
+                // Look at world origin.
+                let origin_pos_in_cam_space =
+                    (pos_from_wld_to_cam_space * Vector3::zero().extend(1.0)).truncate();
+
+                let light_dir_in_cam_space = origin_pos_in_cam_space - light_pos_in_cam_space;
+                let loc =
+                    gl::GetUniformLocation(program.as_uint(), c_str!("light.dir_in_cam_space"));
+                gl::Uniform3fv(loc, 1, light_dir_in_cam_space.as_ptr());
             }
 
             va.bind();

@@ -5,8 +5,11 @@ struct Material {
   float shininess;
 };
 
-struct PointLight {
+struct SpotLight {
   vec3 pos_in_cam_space;
+  vec3 dir_in_cam_space;
+  float cos_angle_inner;
+  float cos_angle_outer;
   vec3 ambient;
   vec3 diffuse;
   vec3 specular;
@@ -19,7 +22,7 @@ in vec3 vs_pos_in_cam_space;
 in vec2 vs_tex;
 in vec3 vs_nor_in_cam_space;
 
-uniform PointLight light;
+uniform SpotLight light;
 uniform Material material;
 
 out vec4 fs_color;
@@ -54,8 +57,18 @@ void main()
     + light.attenuation_quadratic * light_dist * light_dist
   );
 
+
+  vec3 spot_to_frag_in_cam_space_norm = normalize(vs_pos_in_cam_space - light.pos_in_cam_space);
+  vec3 spot_dir_in_cam_space_norm = normalize(light.dir_in_cam_space);
+  float cos_frag_angle = dot(spot_to_frag_in_cam_space_norm, spot_dir_in_cam_space_norm);
+  float spotlight = clamp(
+    (cos_frag_angle - light.cos_angle_outer)/(light.cos_angle_inner - light.cos_angle_outer),
+    0.0,
+    1.0
+  );
+
   // Combine components.
-  fs_color = vec4(attenuation*(ambient + diffuse + specular), 1.0);
+  fs_color = vec4(ambient + spotlight*attenuation*(diffuse + specular), 1.0);
 
   // Draw normals.
   // fs_color = vec4((vec3(1.0) + vs_nor_in_cam_space)/2.0, 1.0);
