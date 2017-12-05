@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Derived `Debug` implementations.
 - `BufferTarget` enum.
 - `bind` method to VertexBuffer.
+- Crate model with diffuse and specular map.
 
 ### Changed
 - `ProgramId::attach` is now performed by `ProgramId::link`.
