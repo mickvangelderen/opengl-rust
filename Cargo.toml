@@ -9,6 +9,6 @@ authors = ["Mick van Gelderen <mickvangelderen@gmail.com>"]
 cgmath = "0.15.0"
 glutin = "0.10.0"
 gl = "0.6.3"
-jpeg-decoder = "0.1.13"
+image = "*"
 simple-field-offset = { path = "simple-field-offset" }
 num-traits = "0.1.40"

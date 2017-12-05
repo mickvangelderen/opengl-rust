@@ -4,7 +4,7 @@
 extern crate gl;
 extern crate glutin;
 extern crate core;
-extern crate jpeg_decoder as jpeg;
+extern crate image;
 extern crate cgmath;
 
 #[macro_use(field_offset)]
@@ -170,30 +170,9 @@ fn main() {
     }
 
     let tex_id: TextureId = {
-        let file = fs::File::open("assets/monster-diffuse.jpg").unwrap();
-        let buf_file = io::BufReader::new(file);
-        let mut decoder = jpeg::Decoder::new(buf_file);
-        let tex_data = decoder.decode().expect("Failed to decode jpeg.");
-        let tex_info = decoder.info().unwrap();
-        // Flip the texture.
-        let tex_data = {
-            let w = tex_info.width as usize;
-            let h = tex_info.height as usize;
-            let mut buffer = Vec::with_capacity(w * h * 3);
-            unsafe {
-                buffer.set_len(w * h * 3);
-            }
-            for r in 0..h {
-                for c in 0..w {
-                    for b in 0..3 {
-                        let in_i = (r * w + c) * 3 + b;
-                        let out_i = ((h - 1 - r) * w + c) * 3 + b;
-                        buffer[out_i] = tex_data[in_i];
-                    }
-                }
-            }
-            buffer
-        };
+        let img = image::open("assets/monster-diffuse.jpg").unwrap();
+
+        let img = img.flipv().to_rgba();
 
         let mut tex_id = TextureId::new().unwrap();
         unsafe {
@@ -212,17 +191,23 @@ fn main() {
                 gl::LINEAR_MIPMAP_LINEAR as GLint,
             );
 
+            // Each row is expected to be padded to be a multiple of
+            // GL_UNPACK_ALIGNMENT which is 4 by default. Here we set it to
+            // 1 which means the rows will not be padded.
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+
             gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGB as GLint,
-                tex_info.width as GLint,
-                tex_info.height as GLint,
-                0,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                tex_data.as_ptr() as *const GLvoid,
+                gl::TEXTURE_2D, // Target
+                0, // MIP map level
+                gl::RGBA8 as GLint, // internal format
+                img.width() as GLint, // width
+                img.height() as GLint, // height
+                0, // border, must be zero
+                gl::RGBA, // format
+                gl::UNSIGNED_BYTE, // component format
+                img.as_ptr() as *const GLvoid, // data
             );
+
             gl::GenerateMipmap(gl::TEXTURE_2D);
         }
 
