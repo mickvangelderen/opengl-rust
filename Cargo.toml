@@ -6,9 +6,10 @@ authors = ["Mick van Gelderen <mickvangelderen@gmail.com>"]
 [workspace]
 
 [dependencies]
-cgmath = "0.15.0"
-glutin = "0.10.0"
-gl = "0.6.3"
+cgmath = "*"
+glutin = "*"
+gl = "*"
+jpeg-decoder = "*"
 image = "*"
 simple-field-offset = { path = "simple-field-offset" }
-num-traits = "0.1.40"
+num-traits = "*"
