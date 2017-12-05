@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Crate model with diffuse and specular map.
 - Light with ambient, diffuse and specular color in fragment shader.
 - Material with diffuse texture, specular texture and shininess in fragment shader.
+- Attenuation to point light.
 
 ### Changed
 - `ProgramId::attach` is now performed by `ProgramId::link`.

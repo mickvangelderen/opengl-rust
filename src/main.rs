@@ -291,6 +291,21 @@ fn main() {
         gl::Uniform3f(loc, 1.0, 1.0, 1.0);
     }
 
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.attenuation_constant"));
+        gl::Uniform1f(loc, 1.0);
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.attenuation_linear"));
+        gl::Uniform1f(loc, 0.09);
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.attenuation_quadratic"));
+        gl::Uniform1f(loc, 0.03);
+    }
+
     let light_program = {
         let vertex_shader = VertexShaderId::new()
             .unwrap()

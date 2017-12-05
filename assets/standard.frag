@@ -5,18 +5,21 @@ struct Material {
   float shininess;
 };
 
-struct Light {
+struct PointLight {
   vec3 pos_in_cam_space;
   vec3 ambient;
   vec3 diffuse;
   vec3 specular;
+  float attenuation_constant;
+  float attenuation_linear;
+  float attenuation_quadratic;
 };
 
 in vec3 vs_pos_in_cam_space;
 in vec2 vs_tex;
 in vec3 vs_nor_in_cam_space;
 
-uniform Light light;
+uniform PointLight light;
 uniform Material material;
 
 out vec4 fs_color;
@@ -43,9 +46,17 @@ void main()
   float specular_power = pow(max(dot(view_dir_in_cam_space_norm, reflect_dir_in_cam_space_norm), 0.0), material.shininess);
   vec3 specular = specular_power * light.specular * specular_color;
 
+  // Compute attenuation.
+  float light_dist = distance(light.pos_in_cam_space, vs_pos_in_cam_space);
+  float attenuation = 1.0/(
+    light.attenuation_constant
+    + light.attenuation_linear * light_dist
+    + light.attenuation_quadratic * light_dist * light_dist
+  );
+
   // Combine components.
-  fs_color = vec4(ambient + diffuse + specular, 1.0);
+  fs_color = vec4(attenuation*(ambient + diffuse + specular), 1.0);
 
   // Draw normals.
-  // fs_color = vec4(0.5*(vec3(1.0) + vs_nor), 1.0);
+  // fs_color = vec4((vec3(1.0) + vs_nor_in_cam_space)/2.0, 1.0);
 }
