@@ -264,10 +264,7 @@ fn main() {
         );
         gl::EnableVertexAttribArray(0);
 
-        gl::BindBuffer(
-            gl::ELEMENT_ARRAY_BUFFER,
-            light_elements_buffer.as_uint(),
-        );
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, light_elements_buffer.as_uint());
 
         gl::BufferData(
             gl::ELEMENT_ARRAY_BUFFER,
