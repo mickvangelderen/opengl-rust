@@ -53,6 +53,88 @@ macro_rules! print_expr {
     }
 }
 
+struct PointLight {
+    position: Vector3<f32>,
+    color_ambient: Vector3<f32>,
+    color_diffuse: Vector3<f32>,
+    color_specular: Vector3<f32>,
+    attenuation_constant: f32,
+    attenuation_linear: f32,
+    attenuation_quadratic: f32,
+}
+
+impl PointLight {
+    fn set_standard_program_uniforms(
+        &self,
+        program: &LinkedProgramId,
+        index: usize,
+        pos_from_wld_to_cam_space: &Matrix4<f32>,
+    ) {
+        unsafe {
+            let pos_in_cam_space = (pos_from_wld_to_cam_space * self.position.extend(1.0)).truncate();
+            let name: String = format!("point_lights[{}].pos_in_cam_space\0", index);
+            let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
+            gl::Uniform3f(
+                loc,
+                pos_in_cam_space.x,
+                pos_in_cam_space.y,
+                pos_in_cam_space.z,
+            );
+        }
+
+        unsafe {
+            let name: String = format!("point_lights[{}].ambient\0", index);
+            let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
+            gl::Uniform3f(
+                loc,
+                self.color_ambient.x,
+                self.color_ambient.y,
+                self.color_ambient.z,
+            );
+        }
+
+        unsafe {
+            let name: String = format!("point_lights[{}].diffuse\0", index);
+            let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
+            gl::Uniform3f(
+                loc,
+                self.color_diffuse.x,
+                self.color_diffuse.y,
+                self.color_diffuse.z,
+            );
+        }
+
+        unsafe {
+            let name: String = format!("point_lights[{}].specular\0", index);
+            let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
+            gl::Uniform3f(
+                loc,
+                self.color_specular.x,
+                self.color_specular.y,
+                self.color_specular.z,
+            );
+        }
+
+        unsafe {
+            let name: String = format!("point_lights[{}].attenuation_constant\0", index);
+            let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
+            gl::Uniform1f(loc, self.attenuation_constant);
+        }
+
+        unsafe {
+            let name: String = format!("point_lights[{}].attenuation_linear\0", index);
+            let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
+            gl::Uniform1f(loc, self.attenuation_linear);
+        }
+
+        unsafe {
+            let name: String = format!("point_lights[{}].attenuation_quadratic\0", index);
+            let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
+            gl::Uniform1f(loc, self.attenuation_quadratic);
+        }
+    }
+}
+
 fn duration_to_seconds(duration: time::Duration) -> f64 {
     let seconds = duration.as_secs() as f64;
     let nanoseconds = duration.subsec_nanos() as f64;
@@ -276,45 +358,46 @@ fn main() {
         gl::Uniform1f(loc, 64.0);
     }
 
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.ambient"));
-        gl::Uniform3f(loc, 0.2, 0.2, 0.2);
-    }
+    // Point Lights.
 
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.diffuse"));
-        gl::Uniform3f(loc, 2.0, 2.0, 2.0);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.specular"));
-        gl::Uniform3f(loc, 4.0, 4.0, 4.0);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.attenuation_constant"));
-        gl::Uniform1f(loc, 1.0);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.attenuation_linear"));
-        gl::Uniform1f(loc, 0.030);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.attenuation_quadratic"));
-        gl::Uniform1f(loc, 0.010);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.cos_angle_inner"));
-        gl::Uniform1f(loc, Deg(14.0).cos());
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.cos_angle_outer"));
-        gl::Uniform1f(loc, Deg(17.0).cos());
-    }
+    let mut point_lights = [
+        PointLight {
+            position: Vector3::new(0.0, 0.0, 0.0),
+            color_ambient: Vector3::new(0.1, 0.1, 0.1),
+            color_diffuse: Vector3::new(1.0, 1.0, 1.0),
+            color_specular: Vector3::new(1.0, 1.0, 1.0),
+            attenuation_constant: 1.0,
+            attenuation_linear: 0.03,
+            attenuation_quadratic: 0.01,
+        },
+        PointLight {
+            position: Vector3::new(3.0, 0.0, 0.0),
+            color_ambient: Vector3::new(0.1, 0.1, 0.1),
+            color_diffuse: Vector3::new(1.0, 0.2, 0.2),
+            color_specular: Vector3::new(1.0, 0.2, 0.2),
+            attenuation_constant: 1.0,
+            attenuation_linear: 0.03,
+            attenuation_quadratic: 0.01,
+        },
+        PointLight {
+            position: Vector3::new(0.0, 3.0, 0.0),
+            color_ambient: Vector3::new(0.1, 0.1, 0.1),
+            color_diffuse: Vector3::new(0.2, 1.0, 0.2),
+            color_specular: Vector3::new(0.2, 1.0, 0.2),
+            attenuation_constant: 1.0,
+            attenuation_linear: 0.03,
+            attenuation_quadratic: 0.01,
+        },
+        PointLight {
+            position: Vector3::new(0.0, 0.0, 3.0),
+            color_ambient: Vector3::new(0.1, 0.1, 0.1),
+            color_diffuse: Vector3::new(0.2, 0.2, 1.0),
+            color_specular: Vector3::new(0.2, 0.2, 1.0),
+            attenuation_constant: 1.0,
+            attenuation_linear: 0.03,
+            attenuation_quadratic: 0.01,
+        },
+    ];
 
     let light_program = {
         let vertex_shader = VertexShaderId::new()
@@ -490,6 +573,9 @@ fn main() {
         let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
             Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
 
+        point_lights[0].position = Quaternion::from_angle_y(Deg(delta_start * 90.0))
+            .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
+
         // Render.
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -512,51 +598,39 @@ fn main() {
                 far: INITIAL_FAR,
             });
 
-            let light_pos_in_wld_space = Quaternion::from_angle_y(Deg(delta_start * 90.0))
-                .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
-
-            let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero()) *
-                Matrix4::from_angle_y(Deg(delta_start * 20.0));
-
-            let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
-            let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
 
             {
-                let loc =
-                    gl::GetUniformLocation(program.as_uint(), c_str!("pos_from_obj_to_cam_space"));
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_cam_space.as_ptr());
+
+                let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero()) *
+                    Matrix4::from_angle_y(Deg(delta_start * 20.0));
+
+                let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
+                let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
+                {
+                    let loc =
+                        gl::GetUniformLocation(program.as_uint(), c_str!("pos_from_obj_to_cam_space"));
+                    gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_cam_space.as_ptr());
+                }
+
+                {
+                    // FIXME: Create 3x3 matrix instead of 4x4. We don't care about translation.
+                    let nor_from_obj_to_cam_space =
+                        pos_from_obj_to_cam_space.invert().unwrap().transpose();
+                    let loc =
+                        gl::GetUniformLocation(program.as_uint(), c_str!("nor_from_obj_to_cam_space"));
+                    gl::UniformMatrix4fv(loc, 1, gl::FALSE, nor_from_obj_to_cam_space.as_ptr());
+                }
+
+                {
+                    let loc =
+                        gl::GetUniformLocation(program.as_uint(), c_str!("pos_from_obj_to_clp_space"));
+                    gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
+                }
             }
 
-            {
-                // FIXME: Create 3x3 matrix instead of 4x4. We don't care about translation.
-                let nor_from_obj_to_cam_space =
-                    pos_from_obj_to_cam_space.invert().unwrap().transpose();
-                let loc =
-                    gl::GetUniformLocation(program.as_uint(), c_str!("nor_from_obj_to_cam_space"));
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, nor_from_obj_to_cam_space.as_ptr());
-            }
-
-            {
-                let loc =
-                    gl::GetUniformLocation(program.as_uint(), c_str!("pos_from_obj_to_clp_space"));
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
-            }
-
-            {
-                let light_pos_in_cam_space =
-                    (pos_from_wld_to_cam_space * light_pos_in_wld_space.extend(1.0)).truncate();
-                let loc =
-                    gl::GetUniformLocation(program.as_uint(), c_str!("light.pos_in_cam_space"));
-                gl::Uniform3fv(loc, 1, light_pos_in_cam_space.as_ptr());
-
-                // Look at world origin.
-                let origin_pos_in_cam_space =
-                    (pos_from_wld_to_cam_space * Vector3::zero().extend(1.0)).truncate();
-
-                let light_dir_in_cam_space = origin_pos_in_cam_space - light_pos_in_cam_space;
-                let loc =
-                    gl::GetUniformLocation(program.as_uint(), c_str!("light.dir_in_cam_space"));
-                gl::Uniform3fv(loc, 1, light_dir_in_cam_space.as_ptr());
+            // Set light uniforms.
+            for (i, light) in point_lights.iter().enumerate() {
+                light.set_standard_program_uniforms(&program, i, &pos_from_wld_to_cam_space);
             }
 
             va.bind();
@@ -568,29 +642,45 @@ fn main() {
                 std::ptr::null(),
             );
 
+            // Draw point lights.
             light_program.bind();
-
-            let pos_from_obj_to_wld_space = Matrix4::from_translation(light_pos_in_wld_space) *
-                Matrix4::from_scale(0.2);
-            let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
-            let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
-
-            {
-                let loc = gl::GetUniformLocation(
-                    light_program.as_uint(),
-                    c_str!("pos_from_obj_to_clp_space"),
-                );
-                gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
-            }
 
             light_vertex_array.bind();
 
-            gl::DrawElements(
-                gl::TRIANGLES,
-                (3 * light_mesh.indices.len()) as GLsizei,
-                gl::UNSIGNED_INT,
-                std::ptr::null(),
-            );
+            for light in point_lights.iter() {
+                let pos_from_obj_to_wld_space = Matrix4::from_translation(light.position) *
+                    Matrix4::from_scale(0.2);
+                let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space *
+                    pos_from_obj_to_wld_space;
+                let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space *
+                    pos_from_obj_to_cam_space;
+
+                {
+                    let loc = gl::GetUniformLocation(
+                        light_program.as_uint(),
+                        c_str!("pos_from_obj_to_clp_space"),
+                    );
+                    gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
+                }
+
+                {
+                    let loc = gl::GetUniformLocation(light_program.as_uint(), c_str!("color"));
+                    gl::Uniform3f(
+                        loc,
+                        light.color_diffuse.x,
+                        light.color_diffuse.y,
+                        light.color_diffuse.z,
+                    );
+                }
+
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    (3 * light_mesh.indices.len()) as GLsizei,
+                    gl::UNSIGNED_INT,
+                    std::ptr::null(),
+                );
+            }
+
         }
 
         gl_window.swap_buffers().unwrap();
