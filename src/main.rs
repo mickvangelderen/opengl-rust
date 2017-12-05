@@ -111,7 +111,7 @@ fn main() {
             .expect("Failed to link program.")
     };
 
-    let mesh = import::import_obj("assets/monster.obj").expect("Failed to import monster.obj");
+    let mesh = import::import_obj("assets/crate.obj").expect("Failed to import crate.obj");
 
     let va = VertexArrayId::new().unwrap();
     let vb = VertexBufferId::new().unwrap();
@@ -169,14 +169,14 @@ fn main() {
         );
     }
 
-    let tex_id: TextureId = {
-        let img = image::open("assets/monster-diffuse.jpg").unwrap();
+    let diffuse_texture_id: TextureId = {
+        let img = image::open("assets/crate_diffuse.png").unwrap();
 
         let img = img.flipv().to_rgba();
 
-        let mut tex_id = TextureId::new().unwrap();
+        let mut diffuse_texture_id = TextureId::new().unwrap();
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, tex_id.as_uint());
+            gl::BindTexture(gl::TEXTURE_2D, diffuse_texture_id.as_uint());
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
@@ -211,14 +211,84 @@ fn main() {
             gl::GenerateMipmap(gl::TEXTURE_2D);
         }
 
-        tex_id
+        diffuse_texture_id
+    };
+
+    let specular_texture_id: TextureId = {
+        let img = image::open("assets/crate_specular.png").unwrap();
+
+        let img = img.flipv().to_rgba();
+
+        let mut specular_texture_id = TextureId::new().unwrap();
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, specular_texture_id.as_uint());
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MIN_FILTER,
+                gl::LINEAR_MIPMAP_LINEAR as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAG_FILTER,
+                gl::LINEAR_MIPMAP_LINEAR as GLint,
+            );
+
+            // Each row is expected to be padded to be a multiple of
+            // GL_UNPACK_ALIGNMENT which is 4 by default. Here we set it to
+            // 1 which means the rows will not be padded.
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D, // Target
+                0, // MIP map level
+                gl::RGBA8 as GLint, // internal format
+                img.width() as GLint, // width
+                img.height() as GLint, // height
+                0, // border, must be zero
+                gl::RGBA, // format
+                gl::UNSIGNED_BYTE, // component format
+                img.as_ptr() as *const GLvoid, // data
+            );
+
+            gl::GenerateMipmap(gl::TEXTURE_2D);
+        }
+
+        specular_texture_id
     };
 
     // Set up texture location for program.
     program.bind();
     unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("tex_color"));
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("material.diffuse"));
         gl::Uniform1i(loc, 0);
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("material.specular"));
+        gl::Uniform1i(loc, 1);
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("material.shininess"));
+        gl::Uniform1f(loc, 64.0);
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.ambient"));
+        gl::Uniform3f(loc, 0.2, 0.2, 0.2);
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.diffuse"));
+        gl::Uniform3f(loc, 1.0, 1.0, 1.0);
+    }
+
+    unsafe {
+        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("light.specular"));
+        gl::Uniform3f(loc, 1.0, 1.0, 1.0);
     }
 
     let light_program = {
@@ -400,7 +470,10 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, tex_id.as_uint());
+            gl::BindTexture(gl::TEXTURE_2D, diffuse_texture_id.as_uint());
+
+            gl::ActiveTexture(gl::TEXTURE1);
+            gl::BindTexture(gl::TEXTURE_2D, specular_texture_id.as_uint());
 
             program.bind();
 
@@ -449,7 +522,7 @@ fn main() {
                 let light_pos_in_cam_space =
                     (pos_from_wld_to_cam_space * light_pos_in_wld_space.extend(1.0)).truncate();
                 let loc =
-                    gl::GetUniformLocation(program.as_uint(), c_str!("light_pos_in_cam_space"));
+                    gl::GetUniformLocation(program.as_uint(), c_str!("light.pos_in_cam_space"));
                 gl::Uniform3fv(loc, 1, light_pos_in_cam_space.as_ptr());
             }
 
