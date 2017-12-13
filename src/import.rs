@@ -15,19 +15,35 @@ pub struct Mesh {
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
-#[repr(C, packed)]
+#[repr(C)]
 struct TriangleElement {
     vertex_position_index: GLuint,
     texture_position_index: GLuint,
     vertex_normal_index: GLuint,
 }
 
+#[test]
+fn triangle_element_has_expected_layout() {
+    assert_eq!(0, field_offset!(TriangleElement, vertex_position_index));
+    assert_eq!(4, field_offset!(TriangleElement, texture_position_index));
+    assert_eq!(8, field_offset!(TriangleElement, vertex_normal_index));
+    assert_eq!(12, ::std::mem::size_of::<TriangleElement>());
+}
+
 #[derive(Debug)]
-#[repr(C, packed)]
+#[repr(C)]
 pub struct VertexData {
     pub vertex_position: Vector3<GLfloat>,
     pub texture_position: Vector2<GLfloat>,
     pub vertex_normal: Vector3<GLfloat>,
+}
+
+#[test]
+fn vertex_data_has_expected_layout() {
+    assert_eq!(00, field_offset!(VertexData, vertex_position));
+    assert_eq!(12, field_offset!(VertexData, texture_position));
+    assert_eq!(20, field_offset!(VertexData, vertex_normal));
+    assert_eq!(32, ::std::mem::size_of::<VertexData>());
 }
 
 pub fn import_obj<P: AsRef<Path>>(path: P) -> io::Result<Mesh> {
