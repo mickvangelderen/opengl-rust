@@ -52,15 +52,37 @@ macro_rules! print_expr {
         println!("{}: {:#?}", stringify!($e), $e)
     }
 }
+struct LightColor {
+    ambient: Vector3<f32>,
+    diffuse: Vector3<f32>,
+    specular: Vector3<f32>,
+}
+
+struct LightAttenuation {
+    constant: f32,
+    linear: f32,
+    quadratic: f32,
+}
 
 struct PointLight {
     position: Vector3<f32>,
-    color_ambient: Vector3<f32>,
-    color_diffuse: Vector3<f32>,
-    color_specular: Vector3<f32>,
-    attenuation_constant: f32,
-    attenuation_linear: f32,
-    attenuation_quadratic: f32,
+    color: LightColor,
+    attenuation: LightAttenuation,
+}
+
+struct DirectionalLight {
+    direction: Vector3<f32>,
+    color: LightColor,
+    attenuation: LightAttenuation,
+}
+
+struct SpotLight {
+    position: Vector3<f32>,
+    direction: Vector3<f32>,
+    inner_angle: Rad<f32>,
+    outer_angle: Rad<f32>,
+    color: LightColor,
+    attenuation: LightAttenuation,
 }
 
 impl PointLight {
@@ -71,7 +93,8 @@ impl PointLight {
         pos_from_wld_to_cam_space: &Matrix4<f32>,
     ) {
         unsafe {
-            let pos_in_cam_space = (pos_from_wld_to_cam_space * self.position.extend(1.0)).truncate();
+            let pos_in_cam_space = (pos_from_wld_to_cam_space * self.position.extend(1.0))
+                .truncate();
             let name: String = format!("point_lights[{}].pos_in_cam_space\0", index);
             let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
             gl::Uniform3f(
@@ -87,9 +110,9 @@ impl PointLight {
             let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
             gl::Uniform3f(
                 loc,
-                self.color_ambient.x,
-                self.color_ambient.y,
-                self.color_ambient.z,
+                self.color.ambient.x,
+                self.color.ambient.y,
+                self.color.ambient.z,
             );
         }
 
@@ -98,9 +121,9 @@ impl PointLight {
             let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
             gl::Uniform3f(
                 loc,
-                self.color_diffuse.x,
-                self.color_diffuse.y,
-                self.color_diffuse.z,
+                self.color.diffuse.x,
+                self.color.diffuse.y,
+                self.color.diffuse.z,
             );
         }
 
@@ -109,28 +132,28 @@ impl PointLight {
             let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
             gl::Uniform3f(
                 loc,
-                self.color_specular.x,
-                self.color_specular.y,
-                self.color_specular.z,
+                self.color.specular.x,
+                self.color.specular.y,
+                self.color.specular.z,
             );
         }
 
         unsafe {
             let name: String = format!("point_lights[{}].attenuation_constant\0", index);
             let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
-            gl::Uniform1f(loc, self.attenuation_constant);
+            gl::Uniform1f(loc, self.attenuation.constant);
         }
 
         unsafe {
             let name: String = format!("point_lights[{}].attenuation_linear\0", index);
             let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
-            gl::Uniform1f(loc, self.attenuation_linear);
+            gl::Uniform1f(loc, self.attenuation.linear);
         }
 
         unsafe {
             let name: String = format!("point_lights[{}].attenuation_quadratic\0", index);
             let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
-            gl::Uniform1f(loc, self.attenuation_quadratic);
+            gl::Uniform1f(loc, self.attenuation.quadratic);
         }
     }
 }
@@ -363,39 +386,55 @@ fn main() {
     let mut point_lights = [
         PointLight {
             position: Vector3::new(0.0, 0.0, 0.0),
-            color_ambient: Vector3::new(0.1, 0.1, 0.1),
-            color_diffuse: Vector3::new(1.0, 1.0, 1.0),
-            color_specular: Vector3::new(1.0, 1.0, 1.0),
-            attenuation_constant: 1.0,
-            attenuation_linear: 0.03,
-            attenuation_quadratic: 0.01,
+            color: LightColor {
+                ambient: Vector3::new(0.1, 0.1, 0.1),
+                diffuse: Vector3::new(1.0, 1.0, 1.0),
+                specular: Vector3::new(1.0, 1.0, 1.0),
+            },
+            attenuation: LightAttenuation {
+                constant: 1.0,
+                linear: 0.03,
+                quadratic: 0.01,
+            },
         },
         PointLight {
             position: Vector3::new(3.0, 0.0, 0.0),
-            color_ambient: Vector3::new(0.1, 0.1, 0.1),
-            color_diffuse: Vector3::new(1.0, 0.2, 0.2),
-            color_specular: Vector3::new(1.0, 0.2, 0.2),
-            attenuation_constant: 1.0,
-            attenuation_linear: 0.03,
-            attenuation_quadratic: 0.01,
+            color: LightColor {
+                ambient: Vector3::new(0.1, 0.1, 0.1),
+                diffuse: Vector3::new(1.0, 0.2, 0.2),
+                specular: Vector3::new(1.0, 0.2, 0.2),
+            },
+            attenuation: LightAttenuation {
+                constant: 1.0,
+                linear: 0.03,
+                quadratic: 0.01,
+            },
         },
         PointLight {
             position: Vector3::new(0.0, 3.0, 0.0),
-            color_ambient: Vector3::new(0.1, 0.1, 0.1),
-            color_diffuse: Vector3::new(0.2, 1.0, 0.2),
-            color_specular: Vector3::new(0.2, 1.0, 0.2),
-            attenuation_constant: 1.0,
-            attenuation_linear: 0.03,
-            attenuation_quadratic: 0.01,
+            color: LightColor {
+                ambient: Vector3::new(0.1, 0.1, 0.1),
+                diffuse: Vector3::new(0.2, 1.0, 0.2),
+                specular: Vector3::new(0.2, 1.0, 0.2),
+            },
+            attenuation: LightAttenuation {
+                constant: 1.0,
+                linear: 0.03,
+                quadratic: 0.01,
+            },
         },
         PointLight {
             position: Vector3::new(0.0, 0.0, 3.0),
-            color_ambient: Vector3::new(0.1, 0.1, 0.1),
-            color_diffuse: Vector3::new(0.2, 0.2, 1.0),
-            color_specular: Vector3::new(0.2, 0.2, 1.0),
-            attenuation_constant: 1.0,
-            attenuation_linear: 0.03,
-            attenuation_quadratic: 0.01,
+            color: LightColor {
+                ambient: Vector3::new(0.1, 0.1, 0.1),
+                diffuse: Vector3::new(0.2, 0.2, 1.0),
+                specular: Vector3::new(0.2, 0.2, 1.0),
+            },
+            attenuation: LightAttenuation {
+                constant: 1.0,
+                linear: 0.03,
+                quadratic: 0.01,
+            },
         },
     ];
 
@@ -667,9 +706,9 @@ fn main() {
                     let loc = gl::GetUniformLocation(light_program.as_uint(), c_str!("color"));
                     gl::Uniform3f(
                         loc,
-                        light.color_diffuse.x,
-                        light.color_diffuse.y,
-                        light.color_diffuse.z,
+                        light.color.diffuse.x,
+                        light.color.diffuse.y,
+                        light.color.diffuse.z,
                     );
                 }
 
