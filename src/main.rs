@@ -19,6 +19,12 @@ pub mod vertex_buffer;
 pub mod vertex_array;
 pub mod viewport;
 
+#[macro_use]
+pub mod string;
+
+#[macro_use]
+pub mod debug;
+
 // use shader::*;
 use shader::specialization::*;
 use program::*;
@@ -40,18 +46,6 @@ use std::mem;
 use std::io;
 use std::fs;
 
-macro_rules! gl_str {
-    ($s:expr) => (
-        concat!($s, "\0") as *const str as *const u8 as *const GLchar
-    );
-}
-
-#[allow(unused_macros)]
-macro_rules! print_expr {
-    ($e:expr) => {
-        println!("{}: {:#?}", stringify!($e), $e)
-    }
-}
 struct LightColor {
     ambient: Vector3<f32>,
     diffuse: Vector3<f32>,
