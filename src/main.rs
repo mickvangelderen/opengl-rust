@@ -503,6 +503,8 @@ fn main() {
     let mut camera_yaw: Rad<GLfloat> = Rad(0.0);
     let mut camera_fov = INITIAL_FOVY;
 
+    let mut has_focus = true;
+
     while running {
 
         let now = time::Instant::now();
@@ -528,79 +530,94 @@ fn main() {
         let mut mouse_dscroll: f32 = 0.0;
 
         // Process events.
-        events_loop.poll_events(|event| match event {
-            glutin::Event::WindowEvent { event, .. } => {
-                match event {
-                    glutin::WindowEvent::Closed => running = false,
-                    glutin::WindowEvent::Resized(w, h) => {
-                        gl_window.resize(w, h);
-                        viewport.update().width(w as GLsizei).height(h as GLsizei);
-                    }
-
-                    glutin::WindowEvent::KeyboardInput { input, .. } => {
-                        let pressed = if let glutin::ElementState::Pressed = input.state {
-                            true
-                        } else {
-                            false
-                        };
-
-                        match input.virtual_keycode {
-                            Some(glutin::VirtualKeyCode::Escape) => running = false,
-                            Some(glutin::VirtualKeyCode::W) => move_forward = pressed,
-                            Some(glutin::VirtualKeyCode::S) => move_backward = pressed,
-                            Some(glutin::VirtualKeyCode::A) => move_left = pressed,
-                            Some(glutin::VirtualKeyCode::D) => move_right = pressed,
-                            Some(glutin::VirtualKeyCode::Q) => move_up = pressed,
-                            Some(glutin::VirtualKeyCode::Z) => move_down = pressed,
-                            _ => (),
+        events_loop.poll_events(|event| {
+            use glutin::Event::*;
+            match event {
+                WindowEvent { event, .. } => {
+                    use glutin::WindowEvent::*;
+                    use glutin::ElementState::*;
+                    match event {
+                        Closed => running = false,
+                        Resized(w, h) => {
+                            gl_window.resize(w, h);
+                            viewport.update().width(w as GLsizei).height(h as GLsizei);
                         }
-                    }
-                    _ => (),
-                }
-            }
-            glutin::Event::DeviceEvent { device_id, event, .. } => {
-                match event {
-                    glutin::DeviceEvent::Added => println!("Added device {:?}", device_id),
-                    glutin::DeviceEvent::Removed => println!("Removed device {:?}", device_id),
-                    glutin::DeviceEvent::Motion { axis, value } => {
-                        match axis {
-                            0 => mouse_dx += value as f32,
-                            1 => mouse_dy += value as f32,
-                            3 => mouse_dscroll += value as f32,
-                            _ => (),
+                        KeyboardInput { input, .. } => {
+                            let pressed = if let Pressed = input.state {
+                                true
+                            } else {
+                                false
+                            };
+
+                            use glutin::VirtualKeyCode::*;
+                            match input.virtual_keycode {
+                                Some(Escape) => {
+                                    if has_focus {
+                                        running = false;
+                                    }
+                                }
+                                Some(W) => move_forward = pressed,
+                                Some(S) => move_backward = pressed,
+                                Some(A) => move_left = pressed,
+                                Some(D) => move_right = pressed,
+                                Some(Q) => move_up = pressed,
+                                Some(Z) => move_down = pressed,
+                                _ => (),
+                            }
                         }
+                        Focused(state) => {
+                            has_focus = state;
+                        }
+                        _ => (),
                     }
-                    _ => (),
                 }
+                DeviceEvent { device_id, event, .. } => {
+                    use glutin::DeviceEvent::*;
+                    match event {
+                        Added => println!("Added device {:?}", device_id),
+                        Removed => println!("Removed device {:?}", device_id),
+                        Motion { axis, value } => {
+                            match axis {
+                                0 => mouse_dx += value as f32,
+                                1 => mouse_dy += value as f32,
+                                3 => mouse_dscroll += value as f32,
+                                _ => (),
+                            }
+                        }
+                        _ => (),
+                    }
+                }
+                _ => (),
             }
-            _ => (),
         });
 
-        let camera_dpos = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
-            Vector3 {
-                x: move_right as u32 as GLfloat - move_left as u32 as GLfloat,
-                y: move_up as u32 as GLfloat - move_down as u32 as GLfloat,
-                z: move_backward as u32 as GLfloat - move_forward as u32 as GLfloat,
-            };
-        let camera_positional_velocity: GLfloat = 2.0;
-        camera_pos += camera_positional_velocity * (delta_frame as f32) * camera_dpos;
+        if has_focus {
+            let camera_dpos = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
+                Vector3 {
+                    x: move_right as u32 as GLfloat - move_left as u32 as GLfloat,
+                    y: move_up as u32 as GLfloat - move_down as u32 as GLfloat,
+                    z: move_backward as u32 as GLfloat - move_forward as u32 as GLfloat,
+                };
+            let camera_positional_velocity: GLfloat = 2.0;
+            camera_pos += camera_positional_velocity * (delta_frame as f32) * camera_dpos;
 
-        let camera_angular_velocity: GLfloat = 0.001;
-        camera_yaw += Rad(mouse_dx) * camera_angular_velocity;
-        camera_pitch += Rad(mouse_dy) * camera_angular_velocity;
+            let camera_angular_velocity: GLfloat = 0.001;
+            camera_yaw += Rad(mouse_dx) * camera_angular_velocity;
+            camera_pitch += Rad(mouse_dy) * camera_angular_velocity;
 
-        if camera_pitch > Rad::turn_div_4() {
-            camera_pitch = Rad::turn_div_4();
-        } else if camera_pitch < -Rad::turn_div_4() {
-            camera_pitch = -Rad::turn_div_4();
-        }
+            if camera_pitch > Rad::turn_div_4() {
+                camera_pitch = Rad::turn_div_4();
+            } else if camera_pitch < -Rad::turn_div_4() {
+                camera_pitch = -Rad::turn_div_4();
+            }
 
-        let camera_zoom_velocity: GLfloat = 0.10;
-        camera_fov += Rad(mouse_dscroll) * camera_zoom_velocity * (delta_frame as f32);
-        if camera_fov > Deg(80.0).into() {
-            camera_fov = Deg(80.0).into()
-        } else if camera_fov < Deg(10.0).into() {
-            camera_fov = Deg(10.0).into()
+            let camera_zoom_velocity: GLfloat = 0.10;
+            camera_fov += Rad(mouse_dscroll) * camera_zoom_velocity * (delta_frame as f32);
+            if camera_fov > Deg(80.0).into() {
+                camera_fov = Deg(80.0).into()
+            } else if camera_fov < Deg(10.0).into() {
+                camera_fov = Deg(10.0).into()
+            }
         }
 
         let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
@@ -630,7 +647,6 @@ fn main() {
                 near: INITIAL_NEAR,
                 far: INITIAL_FAR,
             });
-
 
             {
 
