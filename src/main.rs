@@ -637,11 +637,15 @@ fn main() {
                 let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero()) *
                     Matrix4::from_angle_y(Deg(delta_start * 20.0));
 
-                let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
-                let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
+                let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space *
+                    pos_from_obj_to_wld_space;
+                let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space *
+                    pos_from_obj_to_cam_space;
                 {
-                    let loc =
-                        gl::GetUniformLocation(program.as_uint(), gl_str!("pos_from_obj_to_cam_space"));
+                    let loc = gl::GetUniformLocation(
+                        program.as_uint(),
+                        gl_str!("pos_from_obj_to_cam_space"),
+                    );
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_cam_space.as_ptr());
                 }
 
@@ -649,14 +653,18 @@ fn main() {
                     // FIXME: Create 3x3 matrix instead of 4x4. We don't care about translation.
                     let nor_from_obj_to_cam_space =
                         pos_from_obj_to_cam_space.invert().unwrap().transpose();
-                    let loc =
-                        gl::GetUniformLocation(program.as_uint(), gl_str!("nor_from_obj_to_cam_space"));
+                    let loc = gl::GetUniformLocation(
+                        program.as_uint(),
+                        gl_str!("nor_from_obj_to_cam_space"),
+                    );
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, nor_from_obj_to_cam_space.as_ptr());
                 }
 
                 {
-                    let loc =
-                        gl::GetUniformLocation(program.as_uint(), gl_str!("pos_from_obj_to_clp_space"));
+                    let loc = gl::GetUniformLocation(
+                        program.as_uint(),
+                        gl_str!("pos_from_obj_to_clp_space"),
+                    );
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
                 }
             }
