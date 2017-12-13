@@ -40,7 +40,7 @@ use std::mem;
 use std::io;
 use std::fs;
 
-macro_rules! c_str {
+macro_rules! gl_str {
     ($s:expr) => (
         concat!($s, "\0") as *const str as *const u8 as *const GLchar
     );
@@ -367,17 +367,17 @@ fn main() {
     // Set up texture location for program.
     program.bind();
     unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("material.diffuse"));
+        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.diffuse"));
         gl::Uniform1i(loc, 0);
     }
 
     unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("material.specular"));
+        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.specular"));
         gl::Uniform1i(loc, 1);
     }
 
     unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), c_str!("material.shininess"));
+        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.shininess"));
         gl::Uniform1f(loc, 64.0);
     }
 
@@ -647,7 +647,7 @@ fn main() {
                 let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
                 {
                     let loc =
-                        gl::GetUniformLocation(program.as_uint(), c_str!("pos_from_obj_to_cam_space"));
+                        gl::GetUniformLocation(program.as_uint(), gl_str!("pos_from_obj_to_cam_space"));
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_cam_space.as_ptr());
                 }
 
@@ -656,13 +656,13 @@ fn main() {
                     let nor_from_obj_to_cam_space =
                         pos_from_obj_to_cam_space.invert().unwrap().transpose();
                     let loc =
-                        gl::GetUniformLocation(program.as_uint(), c_str!("nor_from_obj_to_cam_space"));
+                        gl::GetUniformLocation(program.as_uint(), gl_str!("nor_from_obj_to_cam_space"));
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, nor_from_obj_to_cam_space.as_ptr());
                 }
 
                 {
                     let loc =
-                        gl::GetUniformLocation(program.as_uint(), c_str!("pos_from_obj_to_clp_space"));
+                        gl::GetUniformLocation(program.as_uint(), gl_str!("pos_from_obj_to_clp_space"));
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
                 }
             }
@@ -697,13 +697,13 @@ fn main() {
                 {
                     let loc = gl::GetUniformLocation(
                         light_program.as_uint(),
-                        c_str!("pos_from_obj_to_clp_space"),
+                        gl_str!("pos_from_obj_to_clp_space"),
                     );
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
                 }
 
                 {
-                    let loc = gl::GetUniformLocation(light_program.as_uint(), c_str!("color"));
+                    let loc = gl::GetUniformLocation(light_program.as_uint(), gl_str!("color"));
                     gl::Uniform3f(
                         loc,
                         light.color.diffuse.x,
