@@ -776,7 +776,7 @@ fn main() {
             {
 
                 let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero()) *
-                    // Matrix4::from_angle_y(Deg(delta_start * -20.0)) *
+                    Matrix4::from_angle_y(Deg(delta_start * -20.0)) *
                     Matrix4::from_scale(8.0);
 
                 let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space *
