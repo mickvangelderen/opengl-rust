@@ -621,7 +621,7 @@ fn main() {
     let mut move_forward = false;
     let mut move_backward = false;
 
-    let mut camera_pos: Vector3<GLfloat> = Vector3::new(0.0, 4.0, 10.0);
+    let mut camera_pos: Vector3<GLfloat> = Vector3::new(0.0, 1.0, 6.0);
     let mut camera_pitch: Rad<GLfloat> = Rad(0.0);
     let mut camera_yaw: Rad<GLfloat> = Rad(0.0);
     let mut camera_fov = INITIAL_FOVY;
