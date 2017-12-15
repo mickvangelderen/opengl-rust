@@ -813,7 +813,7 @@ fn main() {
 
             // Set light uniforms.
             for (i, light) in point_lights.iter().enumerate() {
-                light.set_standard_program_uniforms(&program, i, &pos_from_wld_to_cam_space);
+                light.set_standard_program_uniforms(&grass_program, i, &pos_from_wld_to_cam_space);
             }
 
             grass_va.bind();
