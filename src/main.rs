@@ -189,6 +189,7 @@ fn main() {
         gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
         gl::ClearColor(0.7, 0.8, 0.9, 1.0);
         gl::Enable(gl::DEPTH_TEST);
+        gl::Enable(gl::CULL_FACE);
     }
 
     let grass_program = ProgramId::new().unwrap()
