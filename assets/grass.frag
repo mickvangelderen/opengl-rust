@@ -33,11 +33,13 @@ void main()
   // vec3 diffuse_color = texture(material.diffuse, frag_tex).rgb;
   vec3 diffuse_color = vec3(68.0, 88.0, 16.0)/256.0;
   // vec3 specular_color = texture(material.specular, frag_tex).rgb;
-  vec3 specular_color = vec3(1.0);
+  vec3 specular_color = vec3(0.0);
 
-  vec3 frag_nor_in_obj_space = texture(material.normal, frag_tex).rgb;
+  vec3 frag_nor_in_obj_space = texture(material.normal, frag_tex).rgb * 2.0 - 1.0;
 
   vec3 frag_nor_in_cam_space = mat3(nor_from_obj_to_cam_space)*frag_nor_in_obj_space;
+
+  vec3 frag_nor_in_cam_space_norm = normalize(frag_nor_in_cam_space);
 
   // Accumulate color.
   vec3 color = vec3(0.0);
@@ -48,7 +50,6 @@ void main()
     vec3 ambient = point_lights[i].ambient * diffuse_color;
 
     // Compute diffuse color component.
-    vec3 frag_nor_in_cam_space_norm = normalize(frag_nor_in_cam_space);
     vec3 light_dir_in_cam_space_norm = normalize(point_lights[i].pos_in_cam_space - frag_pos_in_cam_space);
     float diffuse_power = max(dot(frag_nor_in_cam_space_norm, light_dir_in_cam_space_norm), 0.0);
     vec3 diffuse = diffuse_power * point_lights[i].diffuse * diffuse_color;
@@ -75,5 +76,6 @@ void main()
   frag_color = vec4(color, 1.0);
 
   // Draw normals.
-  // frag_color = vec4((vec3(1.0) + frag_nor_in_cam_space)/2.0, 1.0);
+  // frag_color = vec4((vec3(1.0) + frag_nor_in_cam_space_norm)/2.0, 1.0);
+  // frag_color = vec4(diffuse_color, 1.0);
 }
