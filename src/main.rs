@@ -191,6 +191,128 @@ fn main() {
         gl::Enable(gl::DEPTH_TEST);
     }
 
+    let grass_program = ProgramId::new().unwrap()
+        .link(&[
+            VertexShaderId::new().unwrap()
+                .compile(&[
+                    &file_to_string("assets/grass.vert").unwrap()
+                ]).unwrap().as_ref(),
+            &FragmentShaderId::new().unwrap()
+                .compile(&[
+                    &file_to_string("assets/grass.frag").unwrap()
+                ]).unwrap().as_ref(),
+        ]).unwrap();
+
+    let grass_mesh = import::import_obj("assets/grass.obj").unwrap();
+
+    let grass_va = VertexArrayId::new().unwrap();
+    let grass_vb = VertexBufferId::new().unwrap();
+    let grass_ve = VertexBufferId::new().unwrap();
+
+    unsafe {
+        grass_va.bind();
+
+        grass_vb.bind(BufferTarget::ArrayBuffer);
+
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            mem::size_of_val(&grass_mesh.elements[..]) as GLsizeiptr,
+            grass_mesh.elements.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW,
+        );
+
+        gl::VertexAttribPointer(
+            0,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<import::VertexData>() as GLsizei,
+            field_offset!(import::VertexData, vertex_position) as *const GLvoid,
+        );
+        gl::EnableVertexAttribArray(0);
+
+        gl::VertexAttribPointer(
+            1,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<import::VertexData>() as GLsizei,
+            field_offset!(import::VertexData, texture_position) as *const GLvoid,
+        );
+        gl::EnableVertexAttribArray(1);
+
+        gl::VertexAttribPointer(
+            2,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<import::VertexData>() as GLsizei,
+            field_offset!(import::VertexData, vertex_normal) as *const GLvoid,
+        );
+        gl::EnableVertexAttribArray(2);
+
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, grass_ve.as_uint());
+
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            mem::size_of_val(&grass_mesh.indices[..]) as GLsizeiptr,
+            grass_mesh.indices.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW,
+        );
+    }
+
+    let grass_normal_texture_id: TextureId = {
+        let img = image::open("assets/grass-normals.png").unwrap();
+
+        let img = img.flipv().to_rgb();
+
+        let mut id = TextureId::new().unwrap();
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, id.as_uint());
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MIN_FILTER,
+                gl::LINEAR_MIPMAP_LINEAR as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAG_FILTER,
+                gl::LINEAR_MIPMAP_LINEAR as GLint,
+            );
+
+            // Each row is expected to be padded to be a multiple of
+            // GL_UNPACK_ALIGNMENT which is 4 by default. Here we set it to
+            // 1 which means the rows will not be padded.
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D, // Target
+                0, // MIP map level
+                gl::RGB8 as GLint, // internal format
+                img.width() as GLint, // width
+                img.height() as GLint, // height
+                0, // border, must be zero
+                gl::RGB, // format
+                gl::UNSIGNED_BYTE, // component format
+                img.as_ptr() as *const GLvoid, // data
+            );
+
+            gl::GenerateMipmap(gl::TEXTURE_2D);
+        }
+
+        id
+    };
+
+    // Set up texture location for grass_program.
+    grass_program.bind();
+    unsafe {
+        let loc = gl::GetUniformLocation(grass_program.as_uint(), gl_str!("material.normal"));
+        gl::Uniform1i(loc, 0);
+    }
+
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
         let vertex_shader = VertexShaderId::new()
@@ -631,12 +753,14 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, diffuse_texture_id.as_uint());
+            gl::BindTexture(gl::TEXTURE_2D, grass_normal_texture_id.as_uint());
 
-            gl::ActiveTexture(gl::TEXTURE1);
-            gl::BindTexture(gl::TEXTURE_2D, specular_texture_id.as_uint());
+            // gl::ActiveTexture(gl::TEXTURE1);
+            // gl::BindTexture(gl::TEXTURE_2D, specular_texture_id.as_uint());
 
-            program.bind();
+            grass_program.bind();
+
+            // program.bind();
 
             let pos_from_wld_to_cam_space = Matrix4::from(camera_rot.invert()) *
                 Matrix4::from_translation(-camera_pos);
@@ -659,7 +783,7 @@ fn main() {
                     pos_from_obj_to_cam_space;
                 {
                     let loc = gl::GetUniformLocation(
-                        program.as_uint(),
+                        grass_program.as_uint(),
                         gl_str!("pos_from_obj_to_cam_space"),
                     );
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_cam_space.as_ptr());
@@ -670,7 +794,7 @@ fn main() {
                     let nor_from_obj_to_cam_space =
                         pos_from_obj_to_cam_space.invert().unwrap().transpose();
                     let loc = gl::GetUniformLocation(
-                        program.as_uint(),
+                        grass_program.as_uint(),
                         gl_str!("nor_from_obj_to_cam_space"),
                     );
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, nor_from_obj_to_cam_space.as_ptr());
@@ -678,7 +802,7 @@ fn main() {
 
                 {
                     let loc = gl::GetUniformLocation(
-                        program.as_uint(),
+                        grass_program.as_uint(),
                         gl_str!("pos_from_obj_to_clp_space"),
                     );
                     gl::UniformMatrix4fv(loc, 1, gl::FALSE, pos_from_obj_to_clp_space.as_ptr());
@@ -690,11 +814,11 @@ fn main() {
                 light.set_standard_program_uniforms(&program, i, &pos_from_wld_to_cam_space);
             }
 
-            va.bind();
+            grass_va.bind();
 
             gl::DrawElements(
                 gl::TRIANGLES,
-                (3 * mesh.indices.len()) as GLsizei,
+                (3 * grass_mesh.indices.len()) as GLsizei,
                 gl::UNSIGNED_INT,
                 std::ptr::null(),
             );
