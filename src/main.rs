@@ -11,6 +11,7 @@ extern crate cgmath;
 extern crate simple_field_offset;
 
 pub mod shader;
+pub mod framebuffer;
 pub mod program;
 pub mod import;
 pub mod palette;
