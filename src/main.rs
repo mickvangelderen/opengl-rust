@@ -1,5 +1,6 @@
 #![feature(nonzero)]
 #![feature(stmt_expr_attributes)]
+#![feature(non_exhaustive)]
 
 extern crate gl;
 extern crate glutin;

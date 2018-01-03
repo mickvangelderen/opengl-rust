@@ -191,6 +191,7 @@ pub unsafe fn RenderbufferStorage(
 
 #[repr(u32)]
 #[allow(non_camel_case_types)]
+#[non_exhaustive]
 pub enum FrameBufferStatus {
     ERROR = 0,
     FRAMEBUFFER_COMPLETE = gl::FRAMEBUFFER_COMPLETE,
@@ -202,8 +203,6 @@ pub enum FrameBufferStatus {
     FRAMEBUFFER_UNSUPPORTED = gl::FRAMEBUFFER_UNSUPPORTED,
     FRAMEBUFFER_INCOMPLETE_MULTISAMPLE = gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE,
     FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS = gl::FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS,
-    #[doc(hidden)]
-    __Nonexhaustive,
 }
 
 #[allow(non_snake_case)]
