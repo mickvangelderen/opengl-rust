@@ -60,24 +60,24 @@ struct LightAttenuation {
 }
 
 struct PointLight {
-    position: Vector3<f32>,
     color: LightColor,
     attenuation: LightAttenuation,
+    position: Vector3<f32>,
 }
 
 struct DirectionalLight {
-    direction: Vector3<f32>,
     color: LightColor,
     attenuation: LightAttenuation,
+    direction: Vector3<f32>,
 }
 
 struct SpotLight {
+    color: LightColor,
+    attenuation: LightAttenuation,
     position: Vector3<f32>,
     direction: Vector3<f32>,
     inner_angle: Rad<f32>,
     outer_angle: Rad<f32>,
-    color: LightColor,
-    attenuation: LightAttenuation,
 }
 
 impl PointLight {
