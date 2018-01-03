@@ -47,6 +47,7 @@ impl Drop for FrameBufferId {
 }
 
 #[repr(u32)]
+#[non_exhaustive]
 pub enum FrameBufferAttachment {
     Color0 = gl::COLOR_ATTACHMENT0,
     Color1 = gl::COLOR_ATTACHMENT1,
@@ -56,10 +57,18 @@ pub enum FrameBufferAttachment {
     Color5 = gl::COLOR_ATTACHMENT5,
     Color6 = gl::COLOR_ATTACHMENT6,
     Color7 = gl::COLOR_ATTACHMENT7,
-    // FIXME: How to support color attachments up until the maximum supported by the driver?
+    // Additional colors can be constructed with FrameBufferAttachment::color(index: u32).
     Depth = gl::DEPTH_ATTACHMENT,
     Stencil = gl::STENCIL_ATTACHMENT,
     DepthStencil = gl::DEPTH_STENCIL_ATTACHMENT,
+}
+
+impl FrameBufferAttachment {
+    pub fn color(index: u32) -> Self {
+        unsafe {
+            ::std::mem::transmute::<u32, FrameBufferAttachment>(gl::COLOR_ATTACHMENT0 + index)
+        }
+    }
 }
 
 #[allow(non_snake_case)]
