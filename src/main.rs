@@ -2,11 +2,11 @@
 #![feature(stmt_expr_attributes)]
 #![feature(non_exhaustive)]
 
+extern crate cgmath;
+extern crate core;
 extern crate gl;
 extern crate glutin;
-extern crate core;
 extern crate image;
-extern crate cgmath;
 
 #[macro_use(field_offset)]
 extern crate simple_field_offset;
@@ -29,6 +29,7 @@ pub mod debug;
 
 // use shader::*;
 use shader::specialization::*;
+use framebuffer::*;
 use program::*;
 // use import::*;
 // use palette::*;
@@ -89,8 +90,8 @@ impl PointLight {
         pos_from_wld_to_cam_space: &Matrix4<f32>,
     ) {
         unsafe {
-            let pos_in_cam_space = (pos_from_wld_to_cam_space * self.position.extend(1.0))
-                .truncate();
+            let pos_in_cam_space =
+                (pos_from_wld_to_cam_space * self.position.extend(1.0)).truncate();
             let name: String = format!("point_lights[{}].pos_in_cam_space\0", index);
             let loc = gl::GetUniformLocation(program.as_uint(), name.as_ptr() as *const GLchar);
             gl::Uniform3f(
@@ -187,11 +188,7 @@ fn main() {
         gl_window.make_current().unwrap();
     }
 
-    unsafe {
-        gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
-        gl::ClearColor(0.7, 0.8, 0.9, 1.0);
-        gl::Enable(gl::DEPTH_TEST);
-    }
+    gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
 
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
@@ -298,14 +295,14 @@ fn main() {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
             gl::TexImage2D(
-                gl::TEXTURE_2D, // Target
-                0, // MIP map level
-                gl::RGBA8 as GLint, // internal format
-                img.width() as GLint, // width
-                img.height() as GLint, // height
-                0, // border, must be zero
-                gl::RGBA, // format
-                gl::UNSIGNED_BYTE, // component format
+                gl::TEXTURE_2D,                // Target
+                0,                             // MIP map level
+                gl::RGBA8 as GLint,            // internal format
+                img.width() as GLint,          // width
+                img.height() as GLint,         // height
+                0,                             // border, must be zero
+                gl::RGBA,                      // format
+                gl::UNSIGNED_BYTE,             // component format
                 img.as_ptr() as *const GLvoid, // data
             );
 
@@ -343,14 +340,14 @@ fn main() {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
             gl::TexImage2D(
-                gl::TEXTURE_2D, // Target
-                0, // MIP map level
-                gl::RGBA8 as GLint, // internal format
-                img.width() as GLint, // width
-                img.height() as GLint, // height
-                0, // border, must be zero
-                gl::RGBA, // format
-                gl::UNSIGNED_BYTE, // component format
+                gl::TEXTURE_2D,                // Target
+                0,                             // MIP map level
+                gl::RGBA8 as GLint,            // internal format
+                img.width() as GLint,          // width
+                img.height() as GLint,         // height
+                0,                             // border, must be zero
+                gl::RGBA,                      // format
+                gl::UNSIGNED_BYTE,             // component format
                 img.as_ptr() as *const GLvoid, // data
             );
 
@@ -487,6 +484,122 @@ fn main() {
         );
     }
 
+    // Create a framebuffer to render to.
+    let main_fb = FramebufferId::new().unwrap();
+    main_fb.bind(FramebufferTarget::Framebuffer);
+
+    let main_fb_tex = TextureId::new().unwrap();
+    main_fb_tex.bind(TextureTarget::Texture2D);
+
+    unsafe {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+
+        gl::TexImage2D(
+            gl::TEXTURE_2D,    // Target
+            0,                 // MIP map level
+            gl::RGB8 as GLint, // internal format
+            viewport.width(),
+            viewport.height(),
+            0,                 // border, must be zero
+            gl::RGB,           // format
+            gl::UNSIGNED_BYTE, // component format
+            std::ptr::null(),  // data
+        );
+
+        gl::FramebufferTexture2D(
+            FramebufferTarget::Framebuffer as GLenum,
+            FramebufferAttachment::color(0) as GLenum,
+            TextureTarget::Texture2D as GLenum,
+            main_fb_tex.as_uint(),
+            0,
+        );
+    }
+
+    let main_fb_depth_stencil = RenderBufferId::new().unwrap();
+    main_fb_depth_stencil.bind(RenderBufferTarget::RenderBuffer);
+
+    unsafe {
+        gl::RenderbufferStorage(
+            RenderBufferTarget::RenderBuffer as GLenum,
+            RenderBufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
+            viewport.width(),
+            viewport.height(),
+        );
+        gl::FramebufferRenderbuffer(
+            FramebufferTarget::Framebuffer as GLenum,
+            gl::DEPTH_STENCIL_ATTACHMENT,
+            RenderBufferTarget::RenderBuffer as GLenum,
+            main_fb_depth_stencil.as_uint(),
+        );
+    }
+
+    match unsafe { gl::CheckFramebufferStatus(FramebufferTarget::Framebuffer as GLenum) } {
+        gl::FRAMEBUFFER_COMPLETE => {}
+        _ => {
+            panic!("Framebuffer not complete");
+        }
+    }
+
+    // Rebind the default framebuffer.
+    FramebufferId::bind_default(FramebufferTarget::Framebuffer);
+
+    let post_vao = VertexArrayId::new().unwrap();
+    let post_vbo = VertexBufferId::new().unwrap();
+    let post_vertex_data: [GLfloat; 16] = [
+        -1.0, -1.0, 0.0, 0.0, // vertex coordinates, texture coordinates
+        1.0, -1.0, 1.0, 0.0, //
+        -1.0, 1.0, 0.0, 1.0, //
+        1.0, 1.0, 1.0, 1.0, //
+    ];
+    let post_program = {
+        let vertex_shader = VertexShaderId::new()
+            .unwrap()
+            .compile(&[&file_to_string("assets/post.vert").unwrap()])
+            .unwrap();
+        let fragment_shader = FragmentShaderId::new()
+            .unwrap()
+            .compile(&[&file_to_string("assets/post.frag").unwrap()])
+            .unwrap();
+        let program = ProgramId::new().unwrap();
+        program
+            .link(&[vertex_shader.as_ref(), fragment_shader.as_ref()])
+            .unwrap()
+    };
+
+    unsafe {
+        post_vao.bind();
+
+        post_vbo.bind(BufferTarget::ArrayBuffer);
+
+        gl::BufferData(
+            BufferTarget::ArrayBuffer as GLenum,
+            mem::size_of_val(&post_vertex_data[..]) as GLsizeiptr,
+            post_vertex_data.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW,
+        );
+
+        gl::VertexAttribPointer(
+            0,                                         // attribute index
+            2,                                         // count
+            gl::FLOAT,                                 // type
+            gl::FALSE,                                 // normalize
+            mem::size_of::<[GLfloat; 4]>() as GLsizei, // stride
+            0 as *const GLvoid,                        // offset
+        );
+        gl::EnableVertexAttribArray(0);
+
+        gl::VertexAttribPointer(
+            1,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<[GLfloat; 4]>() as GLsizei, // stride
+            mem::size_of::<[GLfloat; 2]>() as *const GLvoid, // offset
+        );
+        gl::EnableVertexAttribArray(1);
+    }
+
     let start = time::Instant::now();
     let mut running = true;
     let mut frame_count = 0;
@@ -508,7 +621,6 @@ fn main() {
     let mut has_focus = true;
 
     while running {
-
         let now = time::Instant::now();
 
         let delta_start = duration_to_seconds(now.duration_since(start)) as f32;
@@ -573,19 +685,19 @@ fn main() {
                         _ => (),
                     }
                 }
-                DeviceEvent { device_id, event, .. } => {
+                DeviceEvent {
+                    device_id, event, ..
+                } => {
                     use glutin::DeviceEvent::*;
                     match event {
                         Added => println!("Added device {:?}", device_id),
                         Removed => println!("Removed device {:?}", device_id),
-                        Motion { axis, value } => {
-                            match axis {
-                                0 => mouse_dx += value as f32,
-                                1 => mouse_dy += value as f32,
-                                3 => mouse_dscroll += value as f32,
-                                _ => (),
-                            }
-                        }
+                        Motion { axis, value } => match axis {
+                            0 => mouse_dx += value as f32,
+                            1 => mouse_dy += value as f32,
+                            3 => mouse_dscroll += value as f32,
+                            _ => (),
+                        },
                         _ => (),
                     }
                 }
@@ -594,8 +706,8 @@ fn main() {
         });
 
         if has_focus {
-            let camera_dpos = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
-                Vector3 {
+            let camera_dpos = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
+                * Vector3 {
                     x: move_right as u32 as GLfloat - move_left as u32 as GLfloat,
                     y: move_up as u32 as GLfloat - move_down as u32 as GLfloat,
                     z: move_backward as u32 as GLfloat - move_forward as u32 as GLfloat,
@@ -622,26 +734,30 @@ fn main() {
             }
         }
 
-        let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw) *
-            Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
+        let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
+            * Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
 
         point_lights[0].position = Quaternion::from_angle_y(Deg(delta_start * 90.0))
             .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
 
         // Render.
         unsafe {
+            // FramebufferId::bind_default(FramebufferTarget::Framebuffer);
+            main_fb.bind(FramebufferTarget::Framebuffer);
+            gl::ClearColor(0.7, 0.8, 0.9, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::Enable(gl::DEPTH_TEST);
 
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, diffuse_texture_id.as_uint());
+            diffuse_texture_id.bind(TextureTarget::Texture2D);
 
             gl::ActiveTexture(gl::TEXTURE1);
-            gl::BindTexture(gl::TEXTURE_2D, specular_texture_id.as_uint());
+            specular_texture_id.bind(TextureTarget::Texture2D);
 
             program.bind();
 
-            let pos_from_wld_to_cam_space = Matrix4::from(camera_rot.invert()) *
-                Matrix4::from_translation(-camera_pos);
+            let pos_from_wld_to_cam_space =
+                Matrix4::from(camera_rot.invert()) * Matrix4::from_translation(-camera_pos);
 
             let pos_from_cam_to_clp_space = Matrix4::from(PerspectiveFov {
                 fovy: camera_fov,
@@ -651,14 +767,13 @@ fn main() {
             });
 
             {
+                let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero())
+                    * Matrix4::from_angle_y(Deg(delta_start * 20.0));
 
-                let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero()) *
-                    Matrix4::from_angle_y(Deg(delta_start * 20.0));
-
-                let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space *
-                    pos_from_obj_to_wld_space;
-                let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space *
-                    pos_from_obj_to_cam_space;
+                let pos_from_obj_to_cam_space =
+                    pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
+                let pos_from_obj_to_clp_space =
+                    pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
                 {
                     let loc = gl::GetUniformLocation(
                         program.as_uint(),
@@ -707,12 +822,12 @@ fn main() {
             light_vertex_array.bind();
 
             for light in point_lights.iter() {
-                let pos_from_obj_to_wld_space = Matrix4::from_translation(light.position) *
-                    Matrix4::from_scale(0.2);
-                let pos_from_obj_to_cam_space = pos_from_wld_to_cam_space *
-                    pos_from_obj_to_wld_space;
-                let pos_from_obj_to_clp_space = pos_from_cam_to_clp_space *
-                    pos_from_obj_to_cam_space;
+                let pos_from_obj_to_wld_space =
+                    Matrix4::from_translation(light.position) * Matrix4::from_scale(0.2);
+                let pos_from_obj_to_cam_space =
+                    pos_from_wld_to_cam_space * pos_from_obj_to_wld_space;
+                let pos_from_obj_to_clp_space =
+                    pos_from_cam_to_clp_space * pos_from_obj_to_cam_space;
 
                 {
                     let loc = gl::GetUniformLocation(
@@ -740,6 +855,17 @@ fn main() {
                 );
             }
 
+            // Render offscreen buffer.
+            FramebufferId::bind_default(FramebufferTarget::Framebuffer);
+            // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+            // gl::ClearColor(0.0, 1.0, 0.0, 1.0);
+            // gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Disable(gl::DEPTH_TEST);
+            post_program.bind();
+            post_vao.bind();
+            gl::ActiveTexture(gl::TEXTURE0);
+            main_fb_tex.bind(TextureTarget::Texture2D);
+            gl::DrawArrays(gl::TRIANGLE_STRIP, 0 as GLint, 4 as GLsizei);
         }
 
         gl_window.swap_buffers().unwrap();

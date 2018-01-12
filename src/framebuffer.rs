@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 extern crate core;
 extern crate gl;
 
@@ -5,23 +7,23 @@ use core::nonzero::NonZero;
 use gl::types::*;
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct FrameBufferId(NonZero<GLuint>);
+pub struct FramebufferId(NonZero<GLuint>);
 
 #[repr(u32)]
-pub enum FrameBufferTarget {
-    FrameBuffer = gl::FRAMEBUFFER,
-    DrawFrameBuffer = gl::DRAW_FRAMEBUFFER,
-    ReadFrameBuffer = gl::READ_FRAMEBUFFER,
+pub enum FramebufferTarget {
+    Framebuffer = gl::FRAMEBUFFER,
+    DrawFramebuffer = gl::DRAW_FRAMEBUFFER,
+    ReadFramebuffer = gl::READ_FRAMEBUFFER,
 }
 
-impl FrameBufferId {
+impl FramebufferId {
     #[inline]
     pub fn new() -> Option<Self> {
         let mut ids: [GLuint; 1] = [0];
         unsafe {
             gl::GenFramebuffers(ids.len() as GLsizei, ids.as_mut_ptr());
         }
-        NonZero::new(ids[0]).map(FrameBufferId)
+        NonZero::new(ids[0]).map(FramebufferId)
     }
 
     #[inline]
@@ -30,14 +32,20 @@ impl FrameBufferId {
     }
 
     #[inline]
-    pub fn bind(&self, target: FrameBufferTarget) {
+    pub fn bind(&self, target: FramebufferTarget) {
         unsafe {
             BindFramebuffer(target, self);
         }
     }
+
+    pub fn bind_default(target: FramebufferTarget) {
+        unsafe {
+            gl::BindFramebuffer(target as GLenum, 0);
+        }
+    }
 }
 
-impl Drop for FrameBufferId {
+impl Drop for FramebufferId {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -48,7 +56,7 @@ impl Drop for FrameBufferId {
 
 #[repr(u32)]
 #[non_exhaustive]
-pub enum FrameBufferAttachment {
+pub enum FramebufferAttachment {
     Color0 = gl::COLOR_ATTACHMENT0,
     Color1 = gl::COLOR_ATTACHMENT1,
     Color2 = gl::COLOR_ATTACHMENT2,
@@ -57,31 +65,29 @@ pub enum FrameBufferAttachment {
     Color5 = gl::COLOR_ATTACHMENT5,
     Color6 = gl::COLOR_ATTACHMENT6,
     Color7 = gl::COLOR_ATTACHMENT7,
-    // Additional colors can be constructed with FrameBufferAttachment::color(index: u32).
+    // Additional colors can be constructed with FramebufferAttachment::color(index: u32).
     Depth = gl::DEPTH_ATTACHMENT,
     Stencil = gl::STENCIL_ATTACHMENT,
     DepthStencil = gl::DEPTH_STENCIL_ATTACHMENT,
 }
 
-impl FrameBufferAttachment {
+impl FramebufferAttachment {
     pub fn color(index: u32) -> Self {
         unsafe {
-            ::std::mem::transmute::<u32, FrameBufferAttachment>(gl::COLOR_ATTACHMENT0 + index)
+            ::std::mem::transmute::<u32, FramebufferAttachment>(gl::COLOR_ATTACHMENT0 + index)
         }
     }
 }
 
-#[allow(non_snake_case)]
 #[inline]
-pub unsafe fn BindFramebuffer(target: FrameBufferTarget, framebuffer: &FrameBufferId) {
+pub unsafe fn BindFramebuffer(target: FramebufferTarget, framebuffer: &FramebufferId) {
     gl::BindFramebuffer(target as GLenum, framebuffer.as_uint());
 }
 
-#[allow(non_snake_case)]
 #[inline]
 pub unsafe fn FramebufferTexture2D(
-    target: FrameBufferTarget,
-    attachment: FrameBufferAttachment,
+    target: FramebufferTarget,
+    attachment: FramebufferAttachment,
     tex_target: super::texture::TextureTarget,
     texture: super::texture::TextureId,
     mipmap_level: GLint,
@@ -100,16 +106,16 @@ pub enum RenderBufferTarget {
     RenderBuffer = gl::RENDERBUFFER,
 }
 
-pub struct RenderBuffer(NonZero<GLuint>);
+pub struct RenderBufferId(NonZero<GLuint>);
 
-impl RenderBuffer {
+impl RenderBufferId {
     #[inline]
     pub fn new() -> Option<Self> {
         let mut ids: [GLuint; 1] = [0];
         unsafe {
             gl::GenRenderbuffers(ids.len() as GLsizei, ids.as_mut_ptr());
         }
-        NonZero::new(ids[0]).map(RenderBuffer)
+        NonZero::new(ids[0]).map(RenderBufferId)
     }
 
     #[inline]
@@ -125,7 +131,7 @@ impl RenderBuffer {
     }
 }
 
-impl Drop for RenderBuffer {
+impl Drop for RenderBufferId {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -134,9 +140,8 @@ impl Drop for RenderBuffer {
     }
 }
 
-#[allow(non_snake_case)]
 #[inline]
-pub unsafe fn BindRenderbuffer(target: RenderBufferTarget, renderbuffer: &RenderBuffer) {
+pub unsafe fn BindRenderbuffer(target: RenderBufferTarget, renderbuffer: &RenderBufferId) {
     gl::BindRenderbuffer(target as GLenum, renderbuffer.as_uint());
 }
 
@@ -179,7 +184,6 @@ pub enum RenderBufferInternalFormat {
     STENCIL_INDEX8 = gl::STENCIL_INDEX8,
 }
 
-#[allow(non_snake_case)]
 pub unsafe fn RenderbufferStorage(
     target: RenderBufferTarget,
     internal_format: RenderBufferInternalFormat,
@@ -192,7 +196,7 @@ pub unsafe fn RenderbufferStorage(
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 #[non_exhaustive]
-pub enum FrameBufferStatus {
+pub enum FramebufferStatus {
     ERROR = 0,
     FRAMEBUFFER_COMPLETE = gl::FRAMEBUFFER_COMPLETE,
     FRAMEBUFFER_UNDEFINED = gl::FRAMEBUFFER_UNDEFINED,
@@ -205,11 +209,10 @@ pub enum FrameBufferStatus {
     FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS = gl::FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS,
 }
 
-#[allow(non_snake_case)]
-pub unsafe fn CheckFramebufferStatus(target: FrameBufferTarget) -> FrameBufferStatus {
+pub unsafe fn CheckFramebufferStatus(target: FramebufferTarget) -> FramebufferStatus {
     // NOTE: The transmute can lead to undefined behaviour when a driver
     // doesn't return a value that can be represented by the enum. It
     // would be safer and perhaps acceptable to use a switch statement
     // instead.
-    ::std::mem::transmute::<GLenum, FrameBufferStatus>(gl::CheckFramebufferStatus(target as GLenum))
+    ::std::mem::transmute::<GLenum, FramebufferStatus>(gl::CheckFramebufferStatus(target as GLenum))
 }

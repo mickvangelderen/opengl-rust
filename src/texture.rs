@@ -50,3 +50,18 @@ impl Drop for TextureId {
         }
     }
 }
+
+// pub unsafe fn GenTextures(count: usize, buffer: &mut [Option<TextureId>]) {
+//     assert!(count == buffer.len());
+//     // can you do this?
+//     gl::GenTextures(buffer.len(), buffer.as_mut_ptr() as *mut GLuint);
+// }
+
+// #[test]
+// fn test_gen_textures() {
+//     unsafe {
+//         let ids: [Option<TextureId>; 2] = std::mem::uninitialized();
+//         GenTextures(1, &mut ids[..]);
+
+//     }
+// }
