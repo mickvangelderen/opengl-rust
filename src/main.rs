@@ -11,6 +11,7 @@ extern crate image;
 #[macro_use(field_offset)]
 extern crate simple_field_offset;
 
+pub mod camera;
 pub mod shader;
 pub mod framebuffer;
 pub mod program;
@@ -27,6 +28,7 @@ pub mod string;
 #[macro_use]
 pub mod debug;
 
+use camera::*;
 // use shader::*;
 use shader::specialization::*;
 use framebuffer::*;
@@ -162,7 +164,6 @@ fn duration_to_seconds(duration: time::Duration) -> f64 {
 }
 
 fn main() {
-    const INITIAL_FOVY: Rad<GLfloat> = Rad(45.0 * 3.1415 / 180.0);
     const INITIAL_NEAR: GLfloat = 0.1;
     const INITIAL_FAR: GLfloat = 100.0;
 
@@ -613,10 +614,15 @@ fn main() {
     let mut move_forward = false;
     let mut move_backward = false;
 
-    let mut camera_pos: Vector3<GLfloat> = Vector3::new(0.0, 4.0, 10.0);
-    let mut camera_pitch: Rad<GLfloat> = Rad(0.0);
-    let mut camera_yaw: Rad<GLfloat> = Rad(0.0);
-    let mut camera_fov = INITIAL_FOVY;
+    let mut camera = Camera {
+        position: Vector3::new(0.0, 4.0, 10.0),
+        pitch: Rad(0.0),
+        yaw: Rad(0.0),
+        fov: Rad::from(Deg(45.0)),
+        positional_velocity: 2.0,
+        angular_velocity: 0.06,
+        zoom_velocity: 0.10,
+    };
 
     let mut has_focus = true;
 
@@ -706,36 +712,19 @@ fn main() {
         });
 
         if has_focus {
-            let camera_dpos = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
-                * Vector3 {
+            camera.update(&CameraUpdate {
+                delta_time: delta_frame as f32,
+                delta_position: Vector3 {
                     x: move_right as u32 as GLfloat - move_left as u32 as GLfloat,
                     y: move_up as u32 as GLfloat - move_down as u32 as GLfloat,
                     z: move_backward as u32 as GLfloat - move_forward as u32 as GLfloat,
-                };
-            let camera_positional_velocity: GLfloat = 2.0;
-            camera_pos += camera_positional_velocity * (delta_frame as f32) * camera_dpos;
-
-            let camera_angular_velocity: GLfloat = 0.001;
-            camera_yaw += Rad(mouse_dx) * camera_angular_velocity;
-            camera_pitch += Rad(mouse_dy) * camera_angular_velocity;
-
-            if camera_pitch > Rad::turn_div_4() {
-                camera_pitch = Rad::turn_div_4();
-            } else if camera_pitch < -Rad::turn_div_4() {
-                camera_pitch = -Rad::turn_div_4();
-            }
-
-            let camera_zoom_velocity: GLfloat = 0.10;
-            camera_fov += Rad(mouse_dscroll) * camera_zoom_velocity * (delta_frame as f32);
-            if camera_fov > Deg(80.0).into() {
-                camera_fov = Deg(80.0).into()
-            } else if camera_fov < Deg(10.0).into() {
-                camera_fov = Deg(10.0).into()
-            }
+                },
+                delta_yaw: Rad(mouse_dx),
+                delta_pitch: Rad(mouse_dy),
+                delta_scroll: mouse_dscroll,
+            });
         }
 
-        let camera_rot = Quaternion::from_axis_angle(Vector3::unit_y(), -camera_yaw)
-            * Quaternion::from_axis_angle(Vector3::unit_x(), -camera_pitch);
 
         point_lights[0].position = Quaternion::from_angle_y(Deg(delta_start * 90.0))
             .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
@@ -756,11 +745,10 @@ fn main() {
 
             program.bind();
 
-            let pos_from_wld_to_cam_space =
-                Matrix4::from(camera_rot.invert()) * Matrix4::from_translation(-camera_pos);
+            let pos_from_wld_to_cam_space = camera.pos_from_wld_to_cam_space();
 
             let pos_from_cam_to_clp_space = Matrix4::from(PerspectiveFov {
-                fovy: camera_fov,
+                fovy: camera.fov,
                 aspect: viewport.aspect(),
                 near: INITIAL_NEAR,
                 far: INITIAL_FAR,
