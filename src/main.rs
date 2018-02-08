@@ -569,6 +569,26 @@ fn main() {
     };
 
     unsafe {
+        post_program.bind();
+
+        {
+            let loc = gl::GetUniformLocation(
+                post_program.as_uint(),
+                gl_str!("dx"),
+            );
+            gl::Uniform1f(loc, 1.0 / viewport.width() as f32);
+        }
+
+        {
+            let loc = gl::GetUniformLocation(
+                post_program.as_uint(),
+                gl_str!("dy"),
+            );
+            gl::Uniform1f(loc, 1.0 / viewport.height() as f32);
+        }
+    }
+
+    unsafe {
         post_vao.bind();
 
         post_vbo.bind(BufferTarget::ArrayBuffer);

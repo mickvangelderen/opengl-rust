@@ -5,44 +5,25 @@ in vec2 fs_pos_in_tex_space;
 out vec4 fs_color;
 
 uniform sampler2D texture_0;
-
-const float dx = 1.0f/800.0f;
-const float dy = 1.0f/600.0f;
+uniform float dx;
+uniform float dy;
 
 void main() {
-  vec2 offsets[9] = vec2[](
-    vec2(-dx, dy),
-    vec2(0.0f, dy),
-    vec2(dx, dy),
-    vec2(-dx, 0.0f),
-    vec2(0.0f, 0.0f),
-    vec2(dx, 0.0f),
-    vec2(-dx, -dy),
-    vec2(0.0f, -dy),
-    vec2(dx, -dy)
-  );
-
-  // float weights[9] = float[](
-  //   -1.0f,
-  //   -1.0f,
-  //   -1.0f,
-  //   -1.0f,
-  //   9.0f,
-  //   -1.0f,
-  //   -1.0f,
-  //   -1.0f,
-  //   -1.0f
-  // );
-
-  float weights[9] = float[](
-    0.077847f,	0.123317f,	0.077847f,
-    0.123317f,	0.195346f,	0.123317f,
-    0.077847f,	0.123317f,	0.077847f
+  float weights[25] = float[](
+    0.003765f, 0.015019f, 0.023792f, 0.015019f, 0.003765f,
+    0.015019f, 0.059912f, 0.094907f, 0.059912f, 0.015019f,
+    0.023792f, 0.094907f, 0.150342f, 0.094907f, 0.023792f,
+    0.015019f, 0.059912f, 0.094907f, 0.059912f, 0.015019f,
+    0.003765f, 0.015019f, 0.023792f, 0.015019f, 0.003765f
   );
 
   vec4 accumulator = vec4(0.0);
-  for (int i = 0; i < 9; i++) {
-    accumulator += weights[i] * texture(texture_0, fs_pos_in_tex_space + offsets[i]);
+  for (int col = 0; col < 5; col++) {
+    for (int row = 0; row < 5; row++) {
+      float weight = weights[col * 5 + row];
+      vec2 offset = vec2((row - 2)*dx, (col - 2)*dy);
+      accumulator += weight * texture(texture_0, fs_pos_in_tex_space + offset);
+    }
   }
 
   fs_color = accumulator;
