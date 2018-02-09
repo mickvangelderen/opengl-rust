@@ -69,20 +69,20 @@ struct PointLight {
     position: Vector3<f32>,
 }
 
-struct DirectionalLight {
-    color: LightColor,
-    attenuation: LightAttenuation,
-    direction: Vector3<f32>,
-}
+// struct DirectionalLight {
+//     color: LightColor,
+//     attenuation: LightAttenuation,
+//     direction: Vector3<f32>,
+// }
 
-struct SpotLight {
-    color: LightColor,
-    attenuation: LightAttenuation,
-    position: Vector3<f32>,
-    direction: Vector3<f32>,
-    inner_angle: Rad<f32>,
-    outer_angle: Rad<f32>,
-}
+// struct SpotLight {
+//     color: LightColor,
+//     attenuation: LightAttenuation,
+//     position: Vector3<f32>,
+//     direction: Vector3<f32>,
+//     inner_angle: Rad<f32>,
+//     outer_angle: Rad<f32>,
+// }
 
 impl PointLight {
     fn set_standard_program_uniforms(
@@ -191,6 +191,8 @@ fn main() {
 
     gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
 
+    let texture_2d = &mut TextureTarget::texture_2d();
+
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
         let vertex_shader = VertexShaderId::new()
@@ -275,39 +277,27 @@ fn main() {
 
         let mut diffuse_texture_id = TextureId::new().unwrap();
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, diffuse_texture_id.as_uint());
-
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MIN_FILTER,
-                gl::LINEAR_MIPMAP_LINEAR as GLint,
-            );
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MAG_FILTER,
-                gl::LINEAR_MIPMAP_LINEAR as GLint,
-            );
-
             // Each row is expected to be padded to be a multiple of
             // GL_UNPACK_ALIGNMENT which is 4 by default. Here we set it to
             // 1 which means the rows will not be padded.
+
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
-
-            gl::TexImage2D(
-                gl::TEXTURE_2D,                // Target
-                0,                             // MIP map level
-                gl::RGBA8 as GLint,            // internal format
-                img.width() as GLint,          // width
-                img.height() as GLint,         // height
-                0,                             // border, must be zero
-                gl::RGBA,                      // format
-                gl::UNSIGNED_BYTE,             // component format
-                img.as_ptr() as *const GLvoid, // data
-            );
-
-            gl::GenerateMipmap(gl::TEXTURE_2D);
+            diffuse_texture_id
+                .bind(texture_2d)
+                .min_filter(gl::LINEAR_MIPMAP_LINEAR as GLint)
+                .mag_filter(gl::LINEAR_MIPMAP_LINEAR as GLint)
+                .wrap_s(gl::REPEAT as GLint)
+                .wrap_t(gl::REPEAT as GLint)
+                .image_2d(
+                    0,                             // MIP map level
+                    gl::RGBA8 as GLint,            // internal format
+                    img.width() as GLint,          // width
+                    img.height() as GLint,         // height
+                    gl::RGBA,                      // format
+                    gl::UNSIGNED_BYTE,             // component format
+                    img.as_ptr() as *const GLvoid, // data
+                )
+                .generate_mipmap();
         }
 
         diffuse_texture_id
@@ -490,28 +480,28 @@ fn main() {
     main_fb.bind(FramebufferTarget::Framebuffer);
 
     let main_fb_tex = TextureId::new().unwrap();
-    main_fb_tex.bind(TextureTarget::Texture2D);
 
     unsafe {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-
-        gl::TexImage2D(
-            gl::TEXTURE_2D,    // Target
-            0,                 // MIP map level
-            gl::RGB8 as GLint, // internal format
-            viewport.width(),
-            viewport.height(),
-            0,                 // border, must be zero
-            gl::RGB,           // format
-            gl::UNSIGNED_BYTE, // component format
-            std::ptr::null(),  // data
-        );
+        main_fb_tex
+            .bind(texture_2d)
+            .min_filter(gl::NEAREST as GLint)
+            .mag_filter(gl::NEAREST as GLint)
+            .wrap_s(gl::CLAMP_TO_EDGE as GLint)
+            .wrap_t(gl::CLAMP_TO_EDGE as GLint)
+            .image_2d(
+                0,                 // MIP map level
+                gl::RGB8 as GLint, // internal format
+                viewport.width(),
+                viewport.height(),
+                gl::RGB,           // format
+                gl::UNSIGNED_BYTE, // component format
+                std::ptr::null(),  // data
+            );
 
         gl::FramebufferTexture2D(
             FramebufferTarget::Framebuffer as GLenum,
             FramebufferAttachment::color(0) as GLenum,
-            TextureTarget::Texture2D as GLenum,
+            texture_2d.as_enum(),
             main_fb_tex.as_uint(),
             0,
         );
@@ -572,18 +562,12 @@ fn main() {
         post_program.bind();
 
         {
-            let loc = gl::GetUniformLocation(
-                post_program.as_uint(),
-                gl_str!("dx"),
-            );
+            let loc = gl::GetUniformLocation(post_program.as_uint(), gl_str!("dx"));
             gl::Uniform1f(loc, 1.0 / viewport.width() as f32);
         }
 
         {
-            let loc = gl::GetUniformLocation(
-                post_program.as_uint(),
-                gl_str!("dy"),
-            );
+            let loc = gl::GetUniformLocation(post_program.as_uint(), gl_str!("dy"));
             gl::Uniform1f(loc, 1.0 / viewport.height() as f32);
         }
     }
@@ -745,7 +729,6 @@ fn main() {
             });
         }
 
-
         point_lights[0].position = Quaternion::from_angle_y(Deg(delta_start * 90.0))
             .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
 
@@ -758,10 +741,12 @@ fn main() {
             gl::Enable(gl::DEPTH_TEST);
 
             gl::ActiveTexture(gl::TEXTURE0);
-            diffuse_texture_id.bind(TextureTarget::Texture2D);
+            // diffuse_texture_id.bind(TextureTarget::Texture2D);
+            gl::BindTexture(gl::TEXTURE_2D, diffuse_texture_id.as_uint());
 
             gl::ActiveTexture(gl::TEXTURE1);
-            specular_texture_id.bind(TextureTarget::Texture2D);
+            // specular_texture_id.bind(TextureTarget::Texture2D);
+            gl::BindTexture(gl::TEXTURE_2D, specular_texture_id.as_uint());
 
             program.bind();
 
@@ -872,7 +857,8 @@ fn main() {
             post_program.bind();
             post_vao.bind();
             gl::ActiveTexture(gl::TEXTURE0);
-            main_fb_tex.bind(TextureTarget::Texture2D);
+            // main_fb_tex.bind(TextureTarget::Texture2D);
+            gl::BindTexture(gl::TEXTURE_2D, main_fb_tex.as_uint());
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0 as GLint, 4 as GLsizei);
         }
 

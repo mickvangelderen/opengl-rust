@@ -96,7 +96,7 @@ pub unsafe fn FramebufferTexture2D(
     gl::FramebufferTexture2D(
         target as GLenum,
         attachment as GLenum,
-        tex_target as GLenum,
+        tex_target.as_enum(),
         texture.as_uint(),
         mipmap_level,
     );
