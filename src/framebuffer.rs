@@ -86,17 +86,17 @@ pub unsafe fn BindFramebuffer(target: FramebufferTarget, framebuffer: &Framebuff
 }
 
 #[inline]
-pub unsafe fn FramebufferTexture2D(
+pub unsafe fn FramebufferTexture2D<TT: super::texture::TextureTarget>(
     target: FramebufferTarget,
     attachment: FramebufferAttachment,
-    tex_target: super::texture::TextureTarget,
+    _tex_target: &mut TT,
     texture: super::texture::TextureId,
     mipmap_level: GLint,
 ) {
     gl::FramebufferTexture2D(
         target as GLenum,
         attachment as GLenum,
-        tex_target.as_enum(),
+        TT::as_enum(),
         texture.as_uint(),
         mipmap_level,
     );

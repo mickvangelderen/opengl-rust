@@ -4,19 +4,102 @@ extern crate gl;
 use core::nonzero::NonZero;
 use gl::types::*;
 
-pub struct TextureTarget(u32);
+pub trait TextureTarget {
+    fn as_enum() -> GLenum;
+}
 
-impl TextureTarget {
-    pub fn texture_2d() -> Self {
-        TextureTarget(gl::TEXTURE_2D)
-    }
+pub trait TextureTarget1dPlus: TextureTarget {}
+pub trait TextureTarget2dPlus: TextureTarget1dPlus {}
+pub trait TextureTarget3dPlus: TextureTarget2dPlus {}
 
-    pub fn as_enum(&self) -> GLenum {
-        self.0
+impl<T: TextureTarget2dPlus> TextureTarget1dPlus for T {}
+impl<T: TextureTarget3dPlus> TextureTarget2dPlus for T {}
+
+#[derive(Debug)]
+pub struct TextureTarget1d();
+
+impl TextureTarget for TextureTarget1d {
+    fn as_enum() -> GLenum {
+        gl::TEXTURE_1D
     }
 }
 
-// #[allow(unused)]
+impl TextureTarget1dPlus for TextureTarget1d {}
+
+#[derive(Debug)]
+pub struct TextureTarget2d();
+
+impl TextureTarget for TextureTarget2d {
+    fn as_enum() -> GLenum {
+        gl::TEXTURE_2D
+    }
+}
+impl TextureTarget2dPlus for TextureTarget2d {}
+
+#[derive(Debug)]
+pub struct TextureTarget3d;
+
+impl TextureTarget for TextureTarget3d {
+    fn as_enum() -> GLenum {
+        gl::TEXTURE_3D
+    }
+}
+
+impl TextureTarget3dPlus for TextureTarget3d {}
+
+pub struct TextureUnitSlot {}
+
+impl TextureUnitSlot {
+    pub fn active_texture(&mut self, unit: TextureUnit) -> ActiveTextureUnit {
+        ActiveTextureUnit::new(self, unit)
+    }
+}
+
+#[repr(u32)]
+pub enum TextureUnit {
+    TextureUnit0 = gl::TEXTURE0,
+    TextureUnit1 = gl::TEXTURE1,
+}
+
+pub struct ActiveTextureUnit<'a> {
+    texture_unit_slot: PhantomData<&'a mut TextureUnitSlot>,
+    pub texture_target_1d: TextureTarget1d,
+    pub texture_target_2d: TextureTarget2d,
+    pub texture_target_3d: TextureTarget3d,
+}
+
+impl<'a> ActiveTextureUnit<'a> {
+    fn new(_slot: &'a mut TextureUnitSlot, unit: TextureUnit) -> Self {
+        unsafe {
+            gl::ActiveTexture(unit as GLenum);
+        }
+
+        ActiveTextureUnit {
+            texture_unit_slot: PhantomData,
+            texture_target_1d: TextureTarget1d {},
+            texture_target_2d: TextureTarget2d {},
+            texture_target_3d: TextureTarget3d {},
+        }
+    }
+}
+
+// NOTE(mickvangelderen): Not necessary.
+//
+// impl<'a> Drop for ActiveTextureUnit<'a> {
+//     fn drop(&mut self) {
+//         unsafe {
+//             gl::ActiveTexture(TextureUnit::TextureUnit0 as GLenum);
+//         }
+//     }
+// }
+
+// macro_rules! impl_texture_unit {
+//     ($Name:ident, $enum:expr) => {
+//         pub struct TextureUnit
+
+//     }
+// }
+
 // #[repr(u32)]
 // pub enum TextureTarget {
 //     Texture1D = gl::TEXTURE_1D,
@@ -48,13 +131,13 @@ impl TextureId {
         }).map(TextureId)
     }
 
-    pub fn bind<'a>(&'a self, target: &'a mut TextureTarget) -> BoundTextureId {
+    pub fn bind<'a, T: 'a + TextureTarget>(&'a self, _target: &'a mut T) -> BoundTextureId<T> {
         unsafe {
-            gl::BindTexture(target.as_enum(), self.as_uint());
+            gl::BindTexture(T::as_enum(), self.as_uint());
         }
         BoundTextureId {
             id: PhantomData,
-            target,
+            target: PhantomData,
         }
     }
 }
@@ -69,15 +152,15 @@ impl Drop for TextureId {
 
 use std::marker::PhantomData;
 
-pub struct BoundTextureId<'a> {
+pub struct BoundTextureId<'a, T: 'a + TextureTarget> {
     id: PhantomData<&'a TextureId>,
-    target: &'a mut TextureTarget,
+    target: PhantomData<&'a mut T>,
 }
 
-impl<'a> BoundTextureId<'a> {
+impl<'a, T: 'a + TextureTarget> BoundTextureId<'a, T> {
     fn parameter_i(&mut self, param: GLenum, value: GLint) -> &mut Self {
         unsafe {
-            gl::TexParameteri(self.target.as_enum(), param, value);
+            gl::TexParameteri(T::as_enum(), param, value);
         }
         self
     }
@@ -90,20 +173,33 @@ impl<'a> BoundTextureId<'a> {
         self.parameter_i(gl::TEXTURE_MAG_FILTER, value)
     }
 
+    pub fn generate_mipmap(&mut self) -> &mut Self {
+        unsafe {
+            gl::GenerateMipmap(T::as_enum());
+        }
+        self
+    }
+}
+
+impl<'a, T: 'a + TextureTarget1dPlus> BoundTextureId<'a, T> {
     pub fn wrap_s(&mut self, value: GLint) -> &mut Self {
         self.parameter_i(gl::TEXTURE_WRAP_S, value)
     }
+}
 
-    // TODO(mickvangelderen): Only define this for 2D+ textures.
+impl<'a, T: 'a + TextureTarget2dPlus> BoundTextureId<'a, T> {
     pub fn wrap_t(&mut self, value: GLint) -> &mut Self {
         self.parameter_i(gl::TEXTURE_WRAP_T, value)
     }
+}
 
-    // TODO(mickvangelderen): Only define this for 3D+ textures.
+impl<'a, T: 'a + TextureTarget3dPlus> BoundTextureId<'a, T> {
     pub fn wrap_r(&mut self, value: GLint) -> &mut Self {
         self.parameter_i(gl::TEXTURE_WRAP_R, value)
     }
+}
 
+impl<'a> BoundTextureId<'a, TextureTarget2d> {
     // TODO(mickvangelderen): Enums
     pub unsafe fn image_2d(
         &mut self,
@@ -116,7 +212,7 @@ impl<'a> BoundTextureId<'a> {
         data: *const GLvoid,
     ) -> &mut Self {
         gl::TexImage2D(
-            self.target.as_enum(),
+            TextureTarget2d::as_enum(),
             mipmap_level,
             internal_format,
             width,
@@ -128,22 +224,24 @@ impl<'a> BoundTextureId<'a> {
         );
         self
     }
-
-    pub fn generate_mipmap(&mut self) -> &mut Self {
-        unsafe {
-            gl::GenerateMipmap(self.target.as_enum());
-        }
-        self
-    }
 }
 
-impl<'a> Drop for BoundTextureId<'a> {
-    fn drop(&mut self) {
-        unsafe {
-            gl::BindTexture(self.target.as_enum(), 0);
-        }
-    }
-}
+// NOTE(mickvangelderen): It would be a mistake to implement drop like this.
+// The following code requires the texture to stay bound when switching
+// texture units.
+// ```rust
+// gl::ActiveTexture(gl::TEXTURE0);
+// gl::BindTexture(gl::TEXTURE_2D, 1);
+// gl::ActiveTexture(gl::TEXTURE1);
+// gl::BindTexture(gl::TEXTURE_2D, 2);
+// ```
+// impl<'a, T: 'a + TextureTarget> Drop for BoundTextureId<'a, T> {
+//     fn drop(&mut self) {
+//         unsafe {
+//             gl::BindTexture(T::as_enum(), 0);
+//         }
+//     }
+// }
 
 // pub unsafe fn GenTextures(count: usize, buffer: &mut [Option<TextureId>]) {
 //     assert!(count == buffer.len());

@@ -191,7 +191,7 @@ fn main() {
 
     gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
 
-    let texture_2d = &mut TextureTarget::texture_2d();
+    let texture_context = &mut TextureUnitSlot {};
 
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
@@ -282,8 +282,11 @@ fn main() {
             // 1 which means the rows will not be padded.
 
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+
+            let mut active_texture_unit = texture_context.active_texture(TextureUnit::TextureUnit0);
+
             diffuse_texture_id
-                .bind(texture_2d)
+                .bind(&mut active_texture_unit.texture_target_2d)
                 .min_filter(gl::LINEAR_MIPMAP_LINEAR as GLint)
                 .mag_filter(gl::LINEAR_MIPMAP_LINEAR as GLint)
                 .wrap_s(gl::REPEAT as GLint)
@@ -482,8 +485,10 @@ fn main() {
     let main_fb_tex = TextureId::new().unwrap();
 
     unsafe {
+        let mut active_texture_unit = texture_context.active_texture(TextureUnit::TextureUnit0);
+
         main_fb_tex
-            .bind(texture_2d)
+            .bind(&mut active_texture_unit.texture_target_2d)
             .min_filter(gl::NEAREST as GLint)
             .mag_filter(gl::NEAREST as GLint)
             .wrap_s(gl::CLAMP_TO_EDGE as GLint)
@@ -501,7 +506,7 @@ fn main() {
         gl::FramebufferTexture2D(
             FramebufferTarget::Framebuffer as GLenum,
             FramebufferAttachment::color(0) as GLenum,
-            texture_2d.as_enum(),
+            TextureTarget2d::as_enum(),
             main_fb_tex.as_uint(),
             0,
         );
@@ -740,13 +745,17 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Enable(gl::DEPTH_TEST);
 
-            gl::ActiveTexture(gl::TEXTURE0);
-            // diffuse_texture_id.bind(TextureTarget::Texture2D);
-            gl::BindTexture(gl::TEXTURE_2D, diffuse_texture_id.as_uint());
+            {
+                let mut active_texture_unit =
+                    texture_context.active_texture(TextureUnit::TextureUnit0);
+                diffuse_texture_id.bind(&mut active_texture_unit.texture_target_2d);
+            }
 
-            gl::ActiveTexture(gl::TEXTURE1);
-            // specular_texture_id.bind(TextureTarget::Texture2D);
-            gl::BindTexture(gl::TEXTURE_2D, specular_texture_id.as_uint());
+            {
+                let mut active_texture_unit =
+                    texture_context.active_texture(TextureUnit::TextureUnit1);
+                specular_texture_id.bind(&mut active_texture_unit.texture_target_2d);
+            }
 
             program.bind();
 
