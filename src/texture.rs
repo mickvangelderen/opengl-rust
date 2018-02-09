@@ -157,7 +157,51 @@ pub struct BoundTextureId<'a, T: 'a + TextureTarget> {
     target: PhantomData<&'a mut T>,
 }
 
+#[repr(u32)]
+pub enum TextureFilter {
+    /// Returns the value of the texture element that is nearest (in
+    /// Manhattan distance) to the specified texture coordinates.
+    Nearest = gl::NEAREST,
+
+    /// Returns the weighted average of the four texture elements that
+    /// are closest to the specified texture coordinates. These can
+    /// include items wrapped or repeated from other parts of a texture,
+    /// depending on the values of GL_TEXTURE_WRAP_S and
+    /// GL_TEXTURE_WRAP_T, and on the exact mapping.
+    Linear = gl::LINEAR,
+
+    /// Chooses the mipmap that most closely matches the size of the
+    /// pixel being textured and uses the GL_NEAREST criterion (the
+    /// texture element closest to the specified texture coordinates) to
+    /// produce a texture value.
+    NearestMipmapNearest = gl::NEAREST_MIPMAP_NEAREST,
+
+    /// Chooses the mipmap that most closely matches the size of the
+    /// pixel being textured and uses the GL_LINEAR criterion (a
+    /// weighted average of the four texture elements that are closest
+    /// to the specified texture coordinates) to produce a texture
+    /// value.
+    LinearMipmapNearest = gl::LINEAR_MIPMAP_NEAREST,
+
+
+    /// Chooses the two mipmaps that most closely match the size of the
+    /// pixel being textured and uses the GL_NEAREST criterion (the
+    /// texture element closest to the specified texture coordinates )
+    /// to produce a texture value from each mipmap. The final texture
+    /// value is a weighted average of those two values.
+    NearestMipmapLinear = gl::NEAREST_MIPMAP_LINEAR,
+
+    /// Chooses the two mipmaps that most closely match the size of the
+    /// pixel being textured and uses the GL_LINEAR criterion (a
+    /// weighted average of the texture elements that are closest to the
+    /// specified texture coordinates) to produce a texture value from
+    /// each mipmap. The final texture value is a weighted average of
+    /// those two values.
+    LinearMipmapLinear = gl::LINEAR_MIPMAP_LINEAR,
+}
+
 impl<'a, T: 'a + TextureTarget> BoundTextureId<'a, T> {
+
     fn parameter_i(&mut self, param: GLenum, value: GLint) -> &mut Self {
         unsafe {
             gl::TexParameteri(T::as_enum(), param, value);
@@ -165,12 +209,12 @@ impl<'a, T: 'a + TextureTarget> BoundTextureId<'a, T> {
         self
     }
 
-    pub fn min_filter(&mut self, value: GLint) -> &mut Self {
-        self.parameter_i(gl::TEXTURE_MIN_FILTER, value)
+    pub fn min_filter(&mut self, value: TextureFilter) -> &mut Self {
+        self.parameter_i(gl::TEXTURE_MIN_FILTER, value as GLint)
     }
 
-    pub fn mag_filter(&mut self, value: GLint) -> &mut Self {
-        self.parameter_i(gl::TEXTURE_MAG_FILTER, value)
+    pub fn mag_filter(&mut self, value: TextureFilter) -> &mut Self {
+        self.parameter_i(gl::TEXTURE_MAG_FILTER, value as GLint)
     }
 
     pub fn generate_mipmap(&mut self) -> &mut Self {

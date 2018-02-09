@@ -287,8 +287,8 @@ fn main() {
 
             diffuse_texture_id
                 .bind(&mut active_texture_unit.texture_target_2d)
-                .min_filter(gl::LINEAR_MIPMAP_LINEAR as GLint)
-                .mag_filter(gl::LINEAR_MIPMAP_LINEAR as GLint)
+                .min_filter(TextureFilter::LinearMipmapLinear)
+                .mag_filter(TextureFilter::LinearMipmapLinear)
                 .wrap_s(gl::REPEAT as GLint)
                 .wrap_t(gl::REPEAT as GLint)
                 .image_2d(
@@ -489,8 +489,8 @@ fn main() {
 
         main_fb_tex
             .bind(&mut active_texture_unit.texture_target_2d)
-            .min_filter(gl::NEAREST as GLint)
-            .mag_filter(gl::NEAREST as GLint)
+            .min_filter(TextureFilter::Nearest)
+            .mag_filter(TextureFilter::Nearest)
             .wrap_s(gl::CLAMP_TO_EDGE as GLint)
             .wrap_t(gl::CLAMP_TO_EDGE as GLint)
             .image_2d(
