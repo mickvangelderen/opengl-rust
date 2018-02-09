@@ -73,6 +73,7 @@ pub enum FramebufferAttachment {
 
 impl FramebufferAttachment {
     pub fn color(index: u32) -> Self {
+        // TODO: Is this function unsafe? What happens when you do color(1234123412341234) and then use that?
         unsafe {
             ::std::mem::transmute::<u32, FramebufferAttachment>(gl::COLOR_ATTACHMENT0 + index)
         }
