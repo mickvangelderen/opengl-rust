@@ -14,6 +14,7 @@ extern crate simple_field_offset;
 pub mod camera;
 pub mod shader;
 pub mod framebuffer;
+pub mod renderbuffer;
 pub mod program;
 pub mod import;
 pub mod palette;
@@ -32,6 +33,7 @@ use camera::*;
 // use shader::*;
 use shader::specialization::*;
 use framebuffer::*;
+use renderbuffer::*;
 use program::*;
 // use import::*;
 // use palette::*;
@@ -193,6 +195,7 @@ fn main() {
 
     let mut texture_unit_slot = TextureUnitSlot {};
     let mut program_slot = ProgramSlot {};
+    let mut framebuffer_slot = FramebufferSlot {};
 
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
@@ -462,7 +465,6 @@ fn main() {
 
     // Create a framebuffer to render to.
     let main_fb = FramebufferId::new().unwrap();
-    main_fb.bind(FramebufferTarget::Framebuffer);
 
     let main_fb_tex = TextureId::new().unwrap();
 
@@ -484,6 +486,8 @@ fn main() {
                 gl::UNSIGNED_BYTE, // component format
                 std::ptr::null(),  // data
             );
+
+        let _bound_fb = framebuffer_slot.bind(FramebufferTarget::Framebuffer, &main_fb);
 
         gl::FramebufferTexture2D(
             FramebufferTarget::Framebuffer as GLenum,
@@ -666,7 +670,11 @@ fn main() {
 
                             // Update framebuffer depth+stencil size.
                             unsafe {
-                                main_fb.bind(FramebufferTarget::Framebuffer);
+                                // TODO(mickvangelderen): Is this
+                                // required at all for
+                                // RenderbufferStorage?
+                                let _bound_fb =
+                                    framebuffer_slot.bind(FramebufferTarget::Framebuffer, &main_fb);
                                 main_fb_depth_stencil.bind(RenderBufferTarget::RenderBuffer);
 
                                 gl::RenderbufferStorage(
@@ -767,7 +775,7 @@ fn main() {
 
         // Render.
         unsafe {
-            main_fb.bind(FramebufferTarget::Framebuffer);
+            let _bound_fb = framebuffer_slot.bind(FramebufferTarget::Framebuffer, &main_fb);
             gl::ClearColor(0.7, 0.8, 0.9, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Enable(gl::DEPTH_TEST);
@@ -878,7 +886,8 @@ fn main() {
 
         unsafe {
             // Render offscreen buffer.
-            FramebufferId::bind_default(FramebufferTarget::Framebuffer);
+            let _bound_fb =
+                framebuffer_slot.bind(FramebufferTarget::Framebuffer, &DEFAULT_FRAMEBUFFER_ID);
             // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
             // gl::ClearColor(0.0, 1.0, 0.0, 1.0);
             // gl::Clear(gl::COLOR_BUFFER_BIT);
