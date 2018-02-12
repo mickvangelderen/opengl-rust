@@ -4,8 +4,17 @@ extern crate gl;
 use core::nonzero::NonZero;
 use gl::types::*;
 
-pub trait TextureTarget {
+pub trait TextureTarget: Sized {
     fn as_enum() -> GLenum;
+    fn bind(&mut self, texture_id: &TextureId) -> BoundTextureId<Self> {
+        unsafe {
+            gl::BindTexture(Self::as_enum(), texture_id.as_uint());
+        }
+        BoundTextureId {
+            id: PhantomData,
+            target: PhantomData,
+        }
+    }
 }
 
 pub trait TextureTarget1dPlus: TextureTarget {}
@@ -129,16 +138,6 @@ impl TextureId {
             gl::GenTextures(ids.len() as GLsizei, ids.as_mut_ptr());
             ids[0]
         }).map(TextureId)
-    }
-
-    pub fn bind<'a, T: 'a + TextureTarget>(&'a self, _target: &'a mut T) -> BoundTextureId<T> {
-        unsafe {
-            gl::BindTexture(T::as_enum(), self.as_uint());
-        }
-        BoundTextureId {
-            id: PhantomData,
-            target: PhantomData,
-        }
     }
 }
 

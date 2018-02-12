@@ -283,10 +283,10 @@ fn main() {
 
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
-            let mut unit = texture_unit_slot.active_texture(TextureUnit::TextureUnit0);
-
-            diffuse_texture_id
-                .bind(&mut unit.texture_target_2d)
+            texture_unit_slot
+                .active_texture(TextureUnit::TextureUnit0)
+                .texture_target_2d
+                .bind(&diffuse_texture_id)
                 .min_filter(TextureFilter::LinearMipmapLinear)
                 .mag_filter(TextureFilter::LinearMipmapLinear)
                 .wrap_s(gl::REPEAT as GLint)
@@ -318,10 +318,10 @@ fn main() {
             // 1 which means the rows will not be padded.
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
-            let mut unit = texture_unit_slot.active_texture(TextureUnit::TextureUnit0);
-
-            specular_texture_id
-                .bind(&mut unit.texture_target_2d)
+            texture_unit_slot
+                .active_texture(TextureUnit::TextureUnit0)
+                .texture_target_2d
+                .bind(&specular_texture_id)
                 .min_filter(TextureFilter::LinearMipmapLinear)
                 .mag_filter(TextureFilter::LinearMipmapLinear)
                 .wrap_s(gl::REPEAT as GLint)
@@ -475,10 +475,10 @@ fn main() {
     let main_fb_tex = TextureId::new().unwrap();
 
     unsafe {
-        let mut unit = texture_unit_slot.active_texture(TextureUnit::TextureUnit0);
-
-        main_fb_tex
-            .bind(&mut unit.texture_target_2d)
+        texture_unit_slot
+            .active_texture(TextureUnit::TextureUnit0)
+            .texture_target_2d
+            .bind(&main_fb_tex)
             .min_filter(TextureFilter::Nearest)
             .mag_filter(TextureFilter::Nearest)
             .wrap_s(gl::CLAMP_TO_EDGE as GLint)
@@ -735,15 +735,15 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Enable(gl::DEPTH_TEST);
 
-            {
-                let mut unit = texture_unit_slot.active_texture(TextureUnit::TextureUnit0);
-                diffuse_texture_id.bind(&mut unit.texture_target_2d);
-            }
+            texture_unit_slot
+                .active_texture(TextureUnit::TextureUnit0)
+                .texture_target_2d
+                .bind(&diffuse_texture_id);
 
-            {
-                let mut unit = texture_unit_slot.active_texture(TextureUnit::TextureUnit1);
-                specular_texture_id.bind(&mut unit.texture_target_2d);
-            }
+            texture_unit_slot
+                .active_texture(TextureUnit::TextureUnit1)
+                .texture_target_2d
+                .bind(&specular_texture_id);
 
             program.bind();
 
@@ -854,10 +854,10 @@ fn main() {
             post_program.bind();
             post_vao.bind();
 
-            {
-                let mut unit = texture_unit_slot.active_texture(TextureUnit::TextureUnit0);
-                main_fb_tex.bind(&mut unit.texture_target_2d);
-            }
+            texture_unit_slot
+                .active_texture(TextureUnit::TextureUnit0)
+                .texture_target_2d
+                .bind(&main_fb_tex);
 
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0 as GLint, 4 as GLsizei);
         }
