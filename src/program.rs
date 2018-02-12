@@ -1,10 +1,12 @@
-extern crate gl;
 extern crate core;
+extern crate gl;
 
 use core::nonzero::NonZero;
-use gl::types::{GLuint, GLint, GLchar, GLsizei};
+use gl::types::{GLchar, GLint, GLsizei, GLuint};
+use std::marker::PhantomData;
+use std::ffi::CStr;
 
-use super::shader::CompiledShaderId;
+use shader::CompiledShaderId;
 
 #[derive(Debug)]
 pub struct ProgramId(NonZero<GLuint>);
@@ -59,9 +61,7 @@ impl ProgramId {
                 buffer
             };
 
-            Err(String::from_utf8(buffer).expect(
-                "Program info log is not utf8",
-            ))
+            Err(String::from_utf8(buffer).expect("Program info log is not utf8"))
         }
     }
 }
@@ -82,7 +82,58 @@ impl LinkedProgramId {
         self.0.as_uint()
     }
 
-    pub fn bind(&self) {
-        unsafe { gl::UseProgram(self.as_uint()) }
+    pub fn uniform_location(&self, name: &CStr) -> UniformLocation {
+        let loc;
+        unsafe {
+            loc = gl::GetUniformLocation(self.as_uint(), name.as_ptr() as *const i8);
+        }
+        UniformLocation(loc, PhantomData)
+    }
+}
+
+#[derive(Debug)]
+pub struct UniformLocation<'p>(i32, PhantomData<&'p LinkedProgramId>);
+
+impl<'p> UniformLocation<'p> {
+    pub unsafe fn as_i32(&self) -> i32 {
+        self.0
+    }
+}
+
+#[derive(Debug)]
+pub struct ProgramSlot();
+
+impl ProgramSlot {
+    pub fn bind<'s, 'p>(&'s mut self, program: &'p LinkedProgramId) -> BoundProgramId {
+        unsafe {
+            gl::UseProgram(program.as_uint());
+        }
+        BoundProgramId {
+            slot: PhantomData,
+            program: PhantomData,
+        }
+    }
+}
+
+#[derive(Debug)]
+#[must_use = "The program is conceptually only bound for the lifetime of this object."]
+pub struct BoundProgramId<'s, 'p> {
+    slot: PhantomData<&'s mut ProgramSlot>,
+    program: PhantomData<&'p LinkedProgramId>,
+}
+
+impl<'s, 'p> BoundProgramId<'s, 'p> {
+    pub fn set_uniform_1f(&mut self, loc: &UniformLocation<'p>, val: f32) -> &mut Self {
+        unsafe {
+            gl::Uniform1f(loc.as_i32(), val);
+        }
+        self
+    }
+
+    pub fn set_uniform_1i(&mut self, loc: &UniformLocation<'p>, val: i32) -> &mut Self {
+        unsafe {
+            gl::Uniform1i(loc.as_i32(), val);
+        }
+        self
     }
 }

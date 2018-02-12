@@ -191,7 +191,8 @@ fn main() {
 
     gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
 
-    let texture_unit_slot = &mut TextureUnitSlot {};
+    let mut texture_unit_slot = TextureUnitSlot {};
+    let mut program_slot = ProgramSlot {};
 
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
@@ -341,22 +342,13 @@ fn main() {
         specular_texture_id
     };
 
-    // Set up texture location for program.
-    program.bind();
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.diffuse"));
-        gl::Uniform1i(loc, 0);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.specular"));
-        gl::Uniform1i(loc, 1);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.shininess"));
-        gl::Uniform1f(loc, 64.0);
-    }
+    program_slot
+        .bind(&program)
+        // Set texture units.
+        .set_uniform_1i(&program.uniform_location(static_cstr!("material.diffuse")), 0)
+        .set_uniform_1i(&program.uniform_location(static_cstr!("material.specular")), 1)
+        // Set shininess.
+        .set_uniform_1f(&program.uniform_location(static_cstr!("material.shininess")), 64.0);
 
     // Point Lights.
 
@@ -553,19 +545,16 @@ fn main() {
             .unwrap()
     };
 
-    unsafe {
-        post_program.bind();
-
-        {
-            let loc = gl::GetUniformLocation(post_program.as_uint(), gl_str!("dx"));
-            gl::Uniform1f(loc, 1.0 / viewport.width() as f32);
-        }
-
-        {
-            let loc = gl::GetUniformLocation(post_program.as_uint(), gl_str!("dy"));
-            gl::Uniform1f(loc, 1.0 / viewport.height() as f32);
-        }
-    }
+    program_slot
+        .bind(&post_program)
+        .set_uniform_1f(
+            &post_program.uniform_location(static_cstr!("dx")),
+            1.0 / viewport.width() as f32,
+        )
+        .set_uniform_1f(
+            &post_program.uniform_location(static_cstr!("dy")),
+            1.0 / viewport.height() as f32,
+        );
 
     unsafe {
         post_vao.bind();
@@ -727,9 +716,17 @@ fn main() {
         point_lights[0].position = Quaternion::from_angle_y(Deg(delta_start * 90.0))
             .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
 
+        let pos_from_wld_to_cam_space = camera.pos_from_wld_to_cam_space();
+
+        let pos_from_cam_to_clp_space = Matrix4::from(PerspectiveFov {
+            fovy: camera.fov,
+            aspect: viewport.aspect(),
+            near: INITIAL_NEAR,
+            far: INITIAL_FAR,
+        });
+
         // Render.
         unsafe {
-            // FramebufferId::bind_default(FramebufferTarget::Framebuffer);
             main_fb.bind(FramebufferTarget::Framebuffer);
             gl::ClearColor(0.7, 0.8, 0.9, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -745,16 +742,7 @@ fn main() {
                 .texture_target_2d
                 .bind(&specular_texture_id);
 
-            program.bind();
-
-            let pos_from_wld_to_cam_space = camera.pos_from_wld_to_cam_space();
-
-            let pos_from_cam_to_clp_space = Matrix4::from(PerspectiveFov {
-                fovy: camera.fov,
-                aspect: viewport.aspect(),
-                near: INITIAL_NEAR,
-                far: INITIAL_FAR,
-            });
+            let _bound_program = program_slot.bind(&program);
 
             {
                 let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero())
@@ -805,9 +793,11 @@ fn main() {
                 gl::UNSIGNED_INT,
                 std::ptr::null(),
             );
+        }
 
+        unsafe {
             // Draw point lights.
-            light_program.bind();
+            let _bound_program = program_slot.bind(&light_program);
 
             light_vertex_array.bind();
 
@@ -844,14 +834,16 @@ fn main() {
                     std::ptr::null(),
                 );
             }
+        }
 
+        unsafe {
             // Render offscreen buffer.
             FramebufferId::bind_default(FramebufferTarget::Framebuffer);
             // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
             // gl::ClearColor(0.0, 1.0, 0.0, 1.0);
             // gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::Disable(gl::DEPTH_TEST);
-            post_program.bind();
+            let _bound_program = program_slot.bind(&post_program);
             post_vao.bind();
 
             texture_unit_slot
