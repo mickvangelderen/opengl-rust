@@ -519,9 +519,6 @@ fn main() {
         }
     }
 
-    // Rebind the default framebuffer.
-    FramebufferId::bind_default(FramebufferTarget::Framebuffer);
-
     let post_vao = VertexArrayId::new().unwrap();
     let post_vbo = VertexBufferId::new().unwrap();
     let post_vertex_data: [GLfloat; 16] = [
@@ -649,7 +646,50 @@ fn main() {
                         Resized(w, h) => {
                             gl_window.resize(w, h);
                             viewport.update().width(w as GLsizei).height(h as GLsizei);
+
+                            // Update framebuffer color texture size.
+                            unsafe {
+                                texture_unit_slot
+                                    .active_texture(TextureUnit::TextureUnit0)
+                                    .texture_target_2d
+                                    .bind(&main_fb_tex)
+                                    .image_2d(
+                                        0,                 // MIP map level
+                                        gl::RGB8 as GLint, // internal format
+                                        viewport.width(),
+                                        viewport.height(),
+                                        gl::RGB,           // format
+                                        gl::UNSIGNED_BYTE, // component format
+                                        std::ptr::null(),  // data
+                                    );
+                            }
+
+                            // Update framebuffer depth+stencil size.
+                            unsafe {
+                                main_fb.bind(FramebufferTarget::Framebuffer);
+                                main_fb_depth_stencil.bind(RenderBufferTarget::RenderBuffer);
+
+                                gl::RenderbufferStorage(
+                                    RenderBufferTarget::RenderBuffer as GLenum,
+                                    RenderBufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
+                                    viewport.width(),
+                                    viewport.height(),
+                                );
+                            }
+
+                            // Update uniforms dependent on viewport size.
+                            program_slot
+                                .bind(&post_program)
+                                .set_uniform_1f(
+                                    &post_program.uniform_location(static_cstr!("dx")),
+                                    1.0 / viewport.width() as f32,
+                                )
+                                .set_uniform_1f(
+                                    &post_program.uniform_location(static_cstr!("dy")),
+                                    1.0 / viewport.height() as f32,
+                                );
                         }
+
                         KeyboardInput { input, .. } => {
                             let pressed = if let Pressed = input.state {
                                 true
