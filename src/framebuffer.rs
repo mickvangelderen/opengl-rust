@@ -25,47 +25,6 @@ impl HasFramebufferId for DefaultFramebufferId {
 #[derive(Debug, Eq, PartialEq)]
 pub struct FramebufferId(NonZero<GLuint>);
 
-impl HasFramebufferId for FramebufferId {
-    #[inline]
-    unsafe fn id(&self) -> u32 {
-        self.0.get()
-    }
-}
-
-#[repr(u32)]
-pub enum FramebufferTarget {
-    Framebuffer = gl::FRAMEBUFFER,
-    DrawFramebuffer = gl::DRAW_FRAMEBUFFER,
-    ReadFramebuffer = gl::READ_FRAMEBUFFER,
-}
-
-pub struct FramebufferSlot {}
-
-impl FramebufferSlot {
-    #[inline]
-    pub fn bind<THasFramebufferId>(
-        &mut self,
-        target: FramebufferTarget,
-        framebuffer: &THasFramebufferId,
-    ) -> BoundFramebufferId<THasFramebufferId>
-    where
-        THasFramebufferId: HasFramebufferId,
-    {
-        unsafe {
-            gl::BindFramebuffer(target as GLenum, framebuffer.id());
-        }
-        BoundFramebufferId {
-            slot: PhantomData,
-            framebuffer: PhantomData,
-        }
-    }
-}
-
-pub struct BoundFramebufferId<'s, 'f, THasFramebufferId: 'f + HasFramebufferId> {
-    slot: PhantomData<&'s mut FramebufferSlot>,
-    framebuffer: PhantomData<&'f THasFramebufferId>,
-}
-
 impl FramebufferId {
     #[inline]
     pub fn new() -> Option<Self> {
@@ -83,6 +42,13 @@ impl Drop for FramebufferId {
         unsafe {
             gl::DeleteFramebuffers(1, &self.id());
         }
+    }
+}
+
+impl HasFramebufferId for FramebufferId {
+    #[inline]
+    unsafe fn id(&self) -> u32 {
+        self.0.get()
     }
 }
 
@@ -112,28 +78,6 @@ impl FramebufferAttachment {
     }
 }
 
-#[inline]
-pub unsafe fn BindFramebuffer(target: FramebufferTarget, framebuffer: &FramebufferId) {
-    gl::BindFramebuffer(target as GLenum, framebuffer.id());
-}
-
-#[inline]
-pub unsafe fn FramebufferTexture2D<TT: super::texture::TextureTarget>(
-    target: FramebufferTarget,
-    attachment: FramebufferAttachment,
-    _tex_target: &mut TT,
-    texture: super::texture::TextureId,
-    mipmap_level: GLint,
-) {
-    gl::FramebufferTexture2D(
-        target as GLenum,
-        attachment as GLenum,
-        TT::as_enum(),
-        texture.as_uint(),
-        mipmap_level,
-    );
-}
-
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 #[non_exhaustive]
@@ -150,189 +94,279 @@ pub enum FramebufferStatus {
     FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS = gl::FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS,
 }
 
-pub unsafe fn CheckFramebufferStatus(target: FramebufferTarget) -> FramebufferStatus {
+pub unsafe fn CheckFramebufferStatus<FT: IsFramebufferTarget>(target: FT) -> FramebufferStatus {
     // NOTE: The transmute can lead to undefined behaviour when a driver
     // doesn't return a value that can be represented by the enum. It
     // would be safer and perhaps acceptable to use a switch statement
     // instead.
-    ::std::mem::transmute::<GLenum, FramebufferStatus>(gl::CheckFramebufferStatus(target as GLenum))
+    ::std::mem::transmute::<u32, FramebufferStatus>(gl::CheckFramebufferStatus(target.as_enum()))
 }
 
-mod experiment {
-    /// A slot represents a resource that can be occupied.
-    /// A target represents a reservation of of one or more slots.
-    /// An id can be bound to a target.
+/// A slot represents a resource that can be occupied.
+/// A target represents a reservation of of one or more slots.
+/// An id can be bound to a target.
 
-    /// this principle can be applied to all opengl resources (probably), for example textures
-    /// texture_unit_slot
-    /// texture_unit_target(texture_unit_slot)
-    /// bound_texture_id(texture_unit_target, texture_id)
+/// this principle can be applied to all opengl resources (probably), for example textures
+/// texture_unit_slot
+/// texture_unit_target(texture_unit_slot)
+/// bound_texture_id(texture_unit_target, texture_id)
 
-    use std::marker::PhantomData;
+pub struct DrawFramebufferSlot {}
+pub struct ReadFramebufferSlot {}
 
+pub struct DrawReadFramebufferTarget<'a>(
+    PhantomData<&'a mut DrawFramebufferSlot>,
+    PhantomData<&'a mut ReadFramebufferSlot>,
+);
+
+impl<'a> DrawReadFramebufferTarget<'a> {
+    pub fn new(draw: &'a mut DrawFramebufferSlot, read: &mut ReadFramebufferSlot) -> Self {
+        let _ = (draw, read);
+        DrawReadFramebufferTarget(PhantomData, PhantomData)
+    }
+}
+
+pub struct DrawFramebufferTarget<'a>(PhantomData<&'a mut DrawFramebufferSlot>);
+
+impl<'a> DrawFramebufferTarget<'a> {
+    pub fn new(draw: &'a mut DrawFramebufferSlot) -> Self {
+        let _ = draw;
+        DrawFramebufferTarget(PhantomData)
+    }
+}
+
+pub struct ReadFramebufferTarget<'a>(PhantomData<&'a mut ReadFramebufferSlot>);
+
+impl<'a> ReadFramebufferTarget<'a> {
+    pub fn new(read: &mut ReadFramebufferSlot) -> Self {
+        let _ = read;
+        ReadFramebufferTarget(PhantomData)
+    }
+}
+
+impl<'a> IsFramebufferTarget for DrawReadFramebufferTarget<'a> {
+    fn as_enum(&self) -> u32 {
+        gl::FRAMEBUFFER
+    }
+}
+
+impl<'a> HasReadFramebufferSlot<'a> for DrawReadFramebufferTarget<'a> {
+    fn prove<'b: 'a>(&'b self) -> &'b PhantomData<&'a mut ReadFramebufferSlot> {
+        &self.1
+    }
+}
+
+impl<'a> HasDrawFramebufferSlot<'a> for DrawReadFramebufferTarget<'a> {
+    fn prove<'b: 'a>(&'b self) -> &'b PhantomData<&'a mut DrawFramebufferSlot> {
+        &self.0
+    }
+}
+
+impl<'a> IsFramebufferTarget for DrawFramebufferTarget<'a> {
+    fn as_enum(&self) -> u32 {
+        gl::DRAW_FRAMEBUFFER
+    }
+}
+
+impl<'a> HasDrawFramebufferSlot<'a> for DrawFramebufferTarget<'a> {
+    fn prove<'b: 'a>(&'b self) -> &'b PhantomData<&'a mut DrawFramebufferSlot> {
+        &self.0
+    }
+}
+
+impl<'a> IsFramebufferTarget for ReadFramebufferTarget<'a> {
+    fn as_enum(&self) -> u32 {
+        gl::READ_FRAMEBUFFER
+    }
+}
+
+impl<'a> HasReadFramebufferSlot<'a> for ReadFramebufferTarget<'a> {
+    fn prove<'b: 'a>(&'b self) -> &'b PhantomData<&'a mut ReadFramebufferSlot> {
+        &self.0
+    }
+}
+
+/// Marker trait that can only be implemented on framebuffer
+/// targets that mutably burrow a DrawFramebufferSlot.
+pub trait HasDrawFramebufferSlot<'a>: IsFramebufferTarget {
+    fn prove<'b: 'a>(&'b self) -> &'b PhantomData<&'a mut DrawFramebufferSlot>;
+}
+
+/// Marker trait that can only be implemented on framebuffer
+/// targets that mutably burrow a ReadFramebufferSlot.
+pub trait HasReadFramebufferSlot<'a>: IsFramebufferTarget {
+    fn prove<'b: 'a>(&'b self) -> &'b PhantomData<&'a mut ReadFramebufferSlot>;
+}
+
+pub trait IsFramebufferTarget: Sized {
+    fn as_enum(&self) -> u32;
+
+    fn bind<THasFramebufferId: HasFramebufferId>(
+        self,
+        framebuffer: &THasFramebufferId,
+    ) -> BoundFramebufferId<THasFramebufferId, Self> {
+        unsafe {
+            gl::BindFramebuffer(self.as_enum(), framebuffer.id());
+        }
+        BoundFramebufferId {
+            target: self,
+            framebuffer: PhantomData::<&THasFramebufferId>,
+        }
+    }
+}
+
+/// Functions available to bound framebuffers with a draw slot.
+pub trait IsDrawableBoundFramebufferId {
+    fn draw(&self) -> bool;
+}
+
+/// Functions available to bound framebuffers with a read slot.
+pub trait IsReadableBoundFramebufferId {
+    fn read(&self) -> bool;
+}
+
+#[must_use]
+pub struct BoundFramebufferId<
+    'a,
+    THasFramebufferId: 'a + HasFramebufferId,
+    TFramebufferTarget: 'a + IsFramebufferTarget,
+> {
+    target: TFramebufferTarget,
+    framebuffer: PhantomData<&'a THasFramebufferId>,
+}
+
+impl<'a, THasFramebufferId, THasDrawFramebufferSlot> IsDrawableBoundFramebufferId
+    for BoundFramebufferId<'a, THasFramebufferId, THasDrawFramebufferSlot>
+where
+    THasFramebufferId: 'a + HasFramebufferId,
+    THasDrawFramebufferSlot: 'a + HasDrawFramebufferSlot<'a>,
+{
+    fn draw(&self) -> bool {
+        false
+    }
+}
+
+impl<'a, THasFramebufferId, THasReadFramebufferSlot> IsReadableBoundFramebufferId
+    for BoundFramebufferId<'a, THasFramebufferId, THasReadFramebufferSlot>
+where
+    THasFramebufferId: 'a + HasFramebufferId,
+    THasReadFramebufferSlot: 'a + HasReadFramebufferSlot<'a>,
+{
+    fn read(&self) -> bool {
+        false
+    }
+}
+
+impl<'a> BoundFramebufferId<'a, FramebufferId, DrawReadFramebufferTarget<'a>> {
+    /// glFramebufferTexture2D attaches the texture image specified by
+    /// texture and level as one of the logical buffers of the currently
+    /// bound framebuffer object. attachment specifies whether the texture
+    /// image should be attached to the framebuffer object's color, depth,
+    /// or stencil buffer. A texture image may not be attached to the
+    /// default framebuffer object name 0.
+    ///
+    /// If texture is not 0, the value of
+    /// GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE for the specified attachment
+    /// point is set to GL_TEXTURE, the value of
+    /// GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME is set to texture, and the
+    /// value of GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL is set to level. If
+    /// texture is a cube map texture, the value of
+    /// GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE is set to textarget;
+    /// otherwise it is set to the default value
+    /// GL_TEXTURE_CUBE_MAP_POSITIVE_X. Any previous attachment to the
+    /// attachment logical buffer of the currently bound framebuffer object
+    /// is broken.
+    ///
+    /// If texture is 0, the current image, if any, attached to the
+    /// attachment logical buffer of the currently bound framebuffer object
+    /// is detached. The value of GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE is
+    /// set to GL_NONE. The value of GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME
+    /// is set to 0. GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL and
+    /// GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE are set to the
+    /// default values 0 and GL_TEXTURE_CUBE_MAP_POSITIVE_X, respectively.
+    pub unsafe fn texture_2d(
+        &mut self,
+        attachment: FramebufferAttachment,
+        textarget: GLenum,
+        texture: GLuint,
+        level: GLint,
+    ) -> &mut Self {
+        gl::FramebufferTexture2D(
+            self.target.as_enum(),
+            attachment as GLenum,
+            textarget,
+            texture,
+            level,
+        );
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DEFAULT_FRAMEBUFFER_ID;
     use super::FramebufferId;
-    use super::HasFramebufferId;
+    use super::DrawFramebufferSlot;
+    use super::ReadFramebufferSlot;
+    use super::DrawReadFramebufferTarget;
+    use super::DrawFramebufferTarget;
+    use super::ReadFramebufferTarget;
+    use super::IsFramebufferTarget;
+    use super::BoundFramebufferId;
+    use super::IsDrawableBoundFramebufferId;
+    use super::IsReadableBoundFramebufferId;
 
-    use super::gl;
-
-    pub struct DrawFramebufferSlot {}
-
-    pub struct ReadFramebufferSlot {}
-
-    // pub struct FramebufferSlot {
-    //     draw: DrawFramebufferSlot,
-    //     read: ReadFramebufferSlot,
-    // }
-
-    pub struct DrawReadFramebufferTarget<'a>(
-        &'a mut DrawFramebufferSlot,
-        &'a mut ReadFramebufferSlot,
-    );
-    pub struct DrawFramebufferTarget<'a>(&'a mut DrawFramebufferSlot);
-    pub struct ReadFramebufferTarget<'a>(&'a mut ReadFramebufferSlot);
-
-    impl<'a> traits::IsFramebufferTarget for DrawReadFramebufferTarget<'a> {
-        fn as_enum() -> u32 {
-            gl::FRAMEBUFFER
-        }
+    #[test]
+    fn default_framebuffer_id_has_size_0() {
+        assert_eq!(0, ::std::mem::size_of_val(&DEFAULT_FRAMEBUFFER_ID));
     }
 
-    impl<'a> traits::IsReadFramebufferTarget<'a> for DrawReadFramebufferTarget<'a> {
-        fn prove<'b: 'a>(&'b self) -> &'b &'a mut ReadFramebufferSlot {
-            &self.1
-        }
+    #[test]
+    fn framebuffer_id_has_size_4() {
+        assert_eq!(4, ::std::mem::size_of::<FramebufferId>());
     }
 
-    impl<'a> traits::IsDrawFramebufferTarget<'a> for DrawReadFramebufferTarget<'a> {
-        fn prove<'b: 'a>(&'b self) -> &'b &'a mut DrawFramebufferSlot {
-            &self.0
-        }
+    #[test]
+    fn framebuffer_targets_have_size_0() {
+        assert_eq!(0, ::std::mem::size_of::<DrawReadFramebufferTarget>());
+        assert_eq!(0, ::std::mem::size_of::<DrawFramebufferTarget>());
+        assert_eq!(0, ::std::mem::size_of::<ReadFramebufferTarget>());
     }
 
-    impl<'a> traits::IsFramebufferTarget for DrawFramebufferTarget<'a> {
-        fn as_enum() -> u32 {
-            gl::DRAW_FRAMEBUFFER
-        }
-    }
-
-    impl<'a> traits::IsDrawFramebufferTarget<'a> for DrawFramebufferTarget<'a> {
-        fn prove<'b: 'a>(&'b self) -> &'b &'a mut DrawFramebufferSlot {
-            &self.0
-        }
-    }
-
-    impl<'a> traits::IsFramebufferTarget for ReadFramebufferTarget<'a> {
-        fn as_enum() -> u32 {
-            gl::READ_FRAMEBUFFER
-        }
-    }
-
-    impl<'a> traits::IsReadFramebufferTarget<'a> for ReadFramebufferTarget<'a> {
-        fn prove<'b: 'a>(&'b self) -> &'b &'a mut ReadFramebufferSlot {
-            &self.0
-        }
-    }
-
-    mod traits {
-        use super::*;
-
-        pub trait IsFramebufferTarget: Sized {
-            fn as_enum() -> u32;
-
-            fn bind<TFramebufferId: HasFramebufferId>(
-                self,
-                framebuffer: &TFramebufferId,
-            ) -> BoundFramebufferId<Self> {
-                unsafe {
-                    gl::BindFramebuffer(Self::as_enum(), framebuffer.id());
-                }
-                BoundFramebufferId {
-                    target: self,
-                    framebuffer: PhantomData,
-                }
-            }
-        }
-
-        /// Marker trait that can only be implemented on framebuffer
-        /// targets that mutably burrow a DrawFramebufferSlot.
-        pub trait IsDrawFramebufferTarget<'a>: IsFramebufferTarget {
-            fn prove<'b: 'a>(&'b self) -> &'b &'a mut DrawFramebufferSlot;
-        }
-
-        /// Marker trait that can only be implemented on framebuffer
-        /// targets that mutably burrow a ReadFramebufferSlot.
-        pub trait IsReadFramebufferTarget<'a>: IsFramebufferTarget {
-            fn prove<'b: 'a>(&'b self) -> &'b &'a mut ReadFramebufferSlot;
-        }
-
-        /// Functions available to bound framebuffers with a draw slot.
-        pub trait IsDrawableBoundFramebufferId {
-            fn draw(&self) -> bool;
-        }
-
-        /// Functions available to bound framebuffers with a read slot.
-        pub trait IsReadableBoundFramebufferId {
-            fn read(&self) -> bool;
-        }
-    }
-
-    #[must_use]
-    pub struct BoundFramebufferId<'a, TFramebufferTarget: 'a + traits::IsFramebufferTarget> {
-        target: TFramebufferTarget,
-        framebuffer: PhantomData<&'a FramebufferId>,
-    }
-
-    impl<'a, TIsDrawFramebufferTarget> traits::IsDrawableBoundFramebufferId
-        for BoundFramebufferId<'a, TIsDrawFramebufferTarget>
-    where
-        TIsDrawFramebufferTarget: 'a + traits::IsDrawFramebufferTarget<'a>,
-    {
-        fn draw(&self) -> bool {
-            false
-        }
-    }
-
-    impl<'a, TIsReadFramebufferTarget> traits::IsReadableBoundFramebufferId
-        for BoundFramebufferId<'a, TIsReadFramebufferTarget>
-    where
-        TIsReadFramebufferTarget: 'a + traits::IsReadFramebufferTarget<'a>,
-    {
-        fn read(&self) -> bool {
-            false
-        }
+    #[test]
+    fn bound_framebuffer_ids_have_size_0() {
+        assert_eq!(0, ::std::mem::size_of::<BoundFramebufferId<FramebufferId, DrawReadFramebufferTarget>>());
     }
 
     #[test]
     fn test() {
-        let fb0 = super::DEFAULT_FRAMEBUFFER_ID;
+        let fb0 = DEFAULT_FRAMEBUFFER_ID;
         let fb1 = FramebufferId::new().unwrap();
         let fb2 = FramebufferId::new().unwrap();
 
         let mut draw = DrawFramebufferSlot {};
         let mut read = ReadFramebufferSlot {};
 
-        use self::traits::*;
-
         {
-            let bb0 = DrawReadFramebufferTarget(&mut draw, &mut read).bind(&fb0);
+            let bb0 = DrawReadFramebufferTarget::new(&mut draw, &mut read).bind(&fb0);
             assert_eq!(bb0.draw(), false);
             assert_eq!(bb0.read(), false);
         }
 
         {
-            let br0 = ReadFramebufferTarget(&mut read).bind(&fb0);
+            let br0 = ReadFramebufferTarget::new(&mut read).bind(&fb0);
 
             // assert_eq!(br0.draw(), false);
             assert_eq!(br0.read(), false);
 
             {
-                let bd1 = DrawFramebufferTarget(&mut draw).bind(&fb1);
+                let bd1 = DrawFramebufferTarget::new(&mut draw).bind(&fb1);
                 assert_eq!(bd1.draw(), false);
                 // assert_eq!(bd1.read(), false);
             }
 
             {
-                let bd2 = DrawFramebufferTarget(&mut draw).bind(&fb2);
+                let bd2 = DrawFramebufferTarget::new(&mut draw).bind(&fb2);
                 assert_eq!(bd2.draw(), false);
                 // assert_eq!(bd2.read(), false);
             }

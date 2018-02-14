@@ -195,7 +195,8 @@ fn main() {
 
     let mut texture_unit_slot = TextureUnitSlot {};
     let mut program_slot = ProgramSlot {};
-    let mut framebuffer_slot = FramebufferSlot {};
+    let mut draw_framebuffer_slot = DrawFramebufferSlot {};
+    let mut read_framebuffer_slot = ReadFramebufferSlot {};
 
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
@@ -487,11 +488,13 @@ fn main() {
                 std::ptr::null(),  // data
             );
 
-        let _bound_fb = framebuffer_slot.bind(FramebufferTarget::Framebuffer, &main_fb);
+        let mut bound_fb = DrawReadFramebufferTarget::new(
+            &mut draw_framebuffer_slot,
+            &mut read_framebuffer_slot
+        ).bind(&main_fb);
 
-        gl::FramebufferTexture2D(
-            FramebufferTarget::Framebuffer as GLenum,
-            FramebufferAttachment::color(0) as GLenum,
+        bound_fb.texture_2d(
+            FramebufferAttachment::color(0),
             TextureTarget2d::as_enum(),
             main_fb_tex.as_uint(),
             0,
@@ -509,14 +512,19 @@ fn main() {
             viewport.height(),
         );
         gl::FramebufferRenderbuffer(
-            FramebufferTarget::Framebuffer as GLenum,
+            // FIXME: impl framebufferrenderbuffer on aboundframebuffer
+            DrawReadFramebufferTarget::new(
+                &mut draw_framebuffer_slot,
+                &mut read_framebuffer_slot,
+            ).as_enum(),
             gl::DEPTH_STENCIL_ATTACHMENT,
             RenderBufferTarget::RenderBuffer as GLenum,
             main_fb_depth_stencil.as_uint(),
         );
     }
 
-    match unsafe { gl::CheckFramebufferStatus(FramebufferTarget::Framebuffer as GLenum) } {
+    // FIXME
+    match unsafe { gl::CheckFramebufferStatus(gl::FRAMEBUFFER) } {
         gl::FRAMEBUFFER_COMPLETE => {}
         _ => {
             panic!("Framebuffer not complete");
@@ -673,8 +681,11 @@ fn main() {
                                 // TODO(mickvangelderen): Is this
                                 // required at all for
                                 // RenderbufferStorage?
-                                let _bound_fb =
-                                    framebuffer_slot.bind(FramebufferTarget::Framebuffer, &main_fb);
+                                let _bound_fb = DrawReadFramebufferTarget::new(
+                                    &mut draw_framebuffer_slot,
+                                    &mut read_framebuffer_slot
+                                ).bind(&main_fb);
+
                                 main_fb_depth_stencil.bind(RenderBufferTarget::RenderBuffer);
 
                                 gl::RenderbufferStorage(
@@ -775,7 +786,11 @@ fn main() {
 
         // Render.
         unsafe {
-            let _bound_fb = framebuffer_slot.bind(FramebufferTarget::Framebuffer, &main_fb);
+            let _bound_fb = DrawReadFramebufferTarget::new(
+                &mut draw_framebuffer_slot,
+                &mut read_framebuffer_slot
+            ).bind(&main_fb);
+
             gl::ClearColor(0.7, 0.8, 0.9, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Enable(gl::DEPTH_TEST);
@@ -886,8 +901,11 @@ fn main() {
 
         unsafe {
             // Render offscreen buffer.
-            let _bound_fb =
-                framebuffer_slot.bind(FramebufferTarget::Framebuffer, &DEFAULT_FRAMEBUFFER_ID);
+            let _bound_fb = DrawReadFramebufferTarget::new(
+                &mut draw_framebuffer_slot,
+                &mut read_framebuffer_slot
+            ).bind(&DEFAULT_FRAMEBUFFER_ID);
+
             // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
             // gl::ClearColor(0.0, 1.0, 0.0, 1.0);
             // gl::Clear(gl::COLOR_BUFFER_BIT);
