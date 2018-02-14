@@ -193,7 +193,7 @@ fn main() {
 
     gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
 
-    let mut texture_unit_slot = TextureUnitSlot {};
+    let mut texture_unit_slot = TextureUnitSlot;
     let mut program_slot = ProgramSlot {};
     let mut draw_framebuffer_slot = DrawFramebufferSlot {};
     let mut read_framebuffer_slot = ReadFramebufferSlot {};
@@ -289,8 +289,9 @@ fn main() {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
             texture_unit_slot
-                .active_texture(TextureUnit::TextureUnit0)
-                .texture_target_2d
+                .activate(TextureUnit::TextureUnit0)
+                .texture_slot_2d
+                .target()
                 .bind(&diffuse_texture_id)
                 .min_filter(TextureFilter::LinearMipmapLinear)
                 .mag_filter(TextureFilter::LinearMipmapLinear)
@@ -324,8 +325,9 @@ fn main() {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
             texture_unit_slot
-                .active_texture(TextureUnit::TextureUnit0)
-                .texture_target_2d
+                .activate(TextureUnit::TextureUnit0)
+                .texture_slot_2d
+                .target()
                 .bind(&specular_texture_id)
                 .min_filter(TextureFilter::LinearMipmapLinear)
                 .mag_filter(TextureFilter::LinearMipmapLinear)
@@ -470,10 +472,11 @@ fn main() {
     let main_fb_tex = TextureId::new().unwrap();
 
     unsafe {
-        texture_unit_slot
-            .active_texture(TextureUnit::TextureUnit0)
-            .texture_target_2d
-            .bind(&main_fb_tex)
+        let mut atu = texture_unit_slot.activate(TextureUnit::TextureUnit0);
+
+        let mut bound_main_fb_tex = atu.texture_slot_2d.target().bind(&main_fb_tex);
+
+        bound_main_fb_tex
             .min_filter(TextureFilter::Nearest)
             .mag_filter(TextureFilter::Nearest)
             .wrap_s(gl::CLAMP_TO_EDGE as GLint)
@@ -488,15 +491,14 @@ fn main() {
                 std::ptr::null(),  // data
             );
 
-        let mut bound_fb = DrawReadFramebufferTarget::new(
-            &mut draw_framebuffer_slot,
-            &mut read_framebuffer_slot
-        ).bind(&main_fb);
+        let mut bound_fb =
+            DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
+                .bind(&main_fb);
 
         bound_fb.texture_2d(
             FramebufferAttachment::color(0),
-            TextureTarget2d::as_enum(),
-            main_fb_tex.as_uint(),
+            bound_main_fb_tex.target_as_enum(),
+            main_fb_tex.id(),
             0,
         );
     }
@@ -513,10 +515,8 @@ fn main() {
         );
         gl::FramebufferRenderbuffer(
             // FIXME: impl framebufferrenderbuffer on aboundframebuffer
-            DrawReadFramebufferTarget::new(
-                &mut draw_framebuffer_slot,
-                &mut read_framebuffer_slot,
-            ).as_enum(),
+            DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
+                .as_enum(),
             gl::DEPTH_STENCIL_ATTACHMENT,
             RenderBufferTarget::RenderBuffer as GLenum,
             main_fb_depth_stencil.as_uint(),
@@ -662,8 +662,9 @@ fn main() {
                             // Update framebuffer color texture size.
                             unsafe {
                                 texture_unit_slot
-                                    .active_texture(TextureUnit::TextureUnit0)
-                                    .texture_target_2d
+                                    .activate(TextureUnit::TextureUnit0)
+                                    .texture_slot_2d
+                                    .target()
                                     .bind(&main_fb_tex)
                                     .image_2d(
                                         0,                 // MIP map level
@@ -683,7 +684,7 @@ fn main() {
                                 // RenderbufferStorage?
                                 let _bound_fb = DrawReadFramebufferTarget::new(
                                     &mut draw_framebuffer_slot,
-                                    &mut read_framebuffer_slot
+                                    &mut read_framebuffer_slot,
                                 ).bind(&main_fb);
 
                                 main_fb_depth_stencil.bind(RenderBufferTarget::RenderBuffer);
@@ -788,7 +789,7 @@ fn main() {
         unsafe {
             let _bound_fb = DrawReadFramebufferTarget::new(
                 &mut draw_framebuffer_slot,
-                &mut read_framebuffer_slot
+                &mut read_framebuffer_slot,
             ).bind(&main_fb);
 
             gl::ClearColor(0.7, 0.8, 0.9, 1.0);
@@ -796,13 +797,15 @@ fn main() {
             gl::Enable(gl::DEPTH_TEST);
 
             texture_unit_slot
-                .active_texture(TextureUnit::TextureUnit0)
-                .texture_target_2d
+                .activate(TextureUnit::TextureUnit0)
+                .texture_slot_2d
+                .target()
                 .bind(&diffuse_texture_id);
 
             texture_unit_slot
-                .active_texture(TextureUnit::TextureUnit1)
-                .texture_target_2d
+                .activate(TextureUnit::TextureUnit1)
+                .texture_slot_2d
+                .target()
                 .bind(&specular_texture_id);
 
             let _bound_program = program_slot.bind(&program);
@@ -903,7 +906,7 @@ fn main() {
             // Render offscreen buffer.
             let _bound_fb = DrawReadFramebufferTarget::new(
                 &mut draw_framebuffer_slot,
-                &mut read_framebuffer_slot
+                &mut read_framebuffer_slot,
             ).bind(&DEFAULT_FRAMEBUFFER_ID);
 
             // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
@@ -914,8 +917,9 @@ fn main() {
             post_vao.bind();
 
             texture_unit_slot
-                .active_texture(TextureUnit::TextureUnit0)
-                .texture_target_2d
+                .activate(TextureUnit::TextureUnit0)
+                .texture_slot_2d
+                .target()
                 .bind(&main_fb_tex);
 
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0 as GLint, 4 as GLsizei);

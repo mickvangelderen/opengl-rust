@@ -12,7 +12,7 @@ fn as_phantom_data<T>(_: T) -> PhantomData<T> {
     PhantomData
 }
 
-trait HasTextureId {
+pub trait HasTextureId {
     unsafe fn id(&self) -> u32;
 }
 
@@ -75,6 +75,24 @@ pub struct TextureSlotBuffer;
 pub struct TextureSlot2DMultisample;
 pub struct TextureSlot2DMultisampleArray;
 
+impl TextureSlot1D {
+    pub fn target(&mut self) -> TextureTarget1D {
+        TextureTarget1D::new(self)
+    }
+}
+
+impl TextureSlot2D {
+    pub fn target(&mut self) -> TextureTarget2D {
+        TextureTarget2D::new(self)
+    }
+}
+
+impl TextureSlot3D {
+    pub fn target(&mut self) -> TextureTarget3D {
+        TextureTarget3D::new(self)
+    }
+}
+
 pub trait TextureTarget: Sized {
     fn as_enum(&self) -> u32;
 
@@ -97,7 +115,7 @@ macro_rules! impl_texture_target(
         pub struct $TT<'a>(PhantomData<&'a mut $TS>);
 
         impl<'a> $TT<'a> {
-            fn new(slot: &'a mut $TS) -> Self {
+            pub fn new(slot: &'a mut $TS) -> Self {
                 $TT(as_phantom_data(slot))
             }
         }
@@ -150,6 +168,10 @@ impl<'a> TextureTargetGroup3D for TextureTarget3D<'a> {}
 impl<'a> TextureTargetGroup3DPlus for TextureTarget3D<'a> {}
 
 impl<'a, T: 'a + TextureTarget> BoundTextureId<'a, TextureId, T> {
+    pub fn target_as_enum(&self) -> u32 {
+        self.target.as_enum()
+    }
+
     fn parameter_i(&mut self, param: GLenum, value: GLint) -> &mut Self {
         unsafe {
             gl::TexParameteri(self.target.as_enum(), param, value);
@@ -191,32 +213,32 @@ impl<'a, T: 'a + TextureTargetGroup3DPlus> BoundTextureId<'a, TextureId, T> {
     }
 }
 
-// impl<'a> BoundTextureId<'a, TextureTarget2d> {
-//     // TODO(mickvangelderen): Enums
-//     pub unsafe fn image_2d(
-//         &mut self,
-//         mipmap_level: GLint,
-//         internal_format: GLint,
-//         width: GLint,
-//         height: GLint,
-//         format: GLenum,
-//         component_format: GLenum,
-//         data: *const GLvoid,
-//     ) -> &mut Self {
-//         gl::TexImage2D(
-//             TextureTarget2d::as_enum(),
-//             mipmap_level,
-//             internal_format,
-//             width,
-//             height,
-//             0, // border, must be zero
-//             format,
-//             component_format,
-//             data,
-//         );
-//         self
-//     }
-// }
+impl<'a, T: 'a + TextureTargetGroup2D> BoundTextureId<'a, TextureId, T> {
+    // TODO(mickvangelderen): Enums
+    pub unsafe fn image_2d(
+        &mut self,
+        mipmap_level: GLint,
+        internal_format: GLint,
+        width: GLint,
+        height: GLint,
+        format: GLenum,
+        component_format: GLenum,
+        data: *const GLvoid,
+    ) -> &mut Self {
+        gl::TexImage2D(
+            self.target.as_enum(),
+            mipmap_level,
+            internal_format,
+            width,
+            height,
+            0, // border, must be zero
+            format,
+            component_format,
+            data,
+        );
+        self
+    }
+}
 
 // NOTE(mickvangelderen): It would be a mistake to implement drop like this.
 // The following code requires the texture to stay bound when switching
@@ -235,87 +257,51 @@ impl<'a, T: 'a + TextureTargetGroup3DPlus> BoundTextureId<'a, TextureId, T> {
 //     }
 // }
 
-// pub unsafe fn GenTextures(count: usize, buffer: &mut [Option<TextureId>]) {
-//     assert!(count == buffer.len());
-//     // can you do this?
-//     gl::GenTextures(buffer.len(), buffer.as_mut_ptr() as *mut GLuint);
-// }
+pub struct TextureUnitSlot;
 
-// #[test]
-// fn test_gen_textures() {
-//     unsafe {
-//         let ids: [Option<TextureId>; 2] = std::mem::uninitialized();
-//         GenTextures(1, &mut ids[..]);
+impl TextureUnitSlot {
+    pub fn activate(&mut self, unit: TextureUnit) -> ActiveTextureUnit {
+        unsafe {
+            gl::ActiveTexture(unit as GLenum);
+        }
 
-//     }
-// }
-// pub struct TextureUnitSlot {}
+        ActiveTextureUnit {
+            slot: as_phantom_data(self),
+            texture_slot_1d: TextureSlot1D,
+            texture_slot_2d: TextureSlot2D,
+            texture_slot_3d: TextureSlot3D,
+            texture_slot_1d_array: TextureSlot1DArray,
+            texture_slot_2d_array: TextureSlot2DArray,
+            texture_slot_rectangle: TextureSlotRectangle,
+            texture_slot_cube_map: TextureSlotCubeMap,
+            texture_slot_cube_map_array: TextureSlotCubeMapArray,
+            texture_slot_buffer: TextureSlotBuffer,
+            texture_slot_2d_multisample: TextureSlot2DMultisample,
+            texture_slot_2d_multisample_array: TextureSlot2DMultisampleArray,
+        }
+    }
+}
 
-// impl TextureUnitSlot {
-//     pub fn active_texture(&mut self, unit: TextureUnit) -> ActiveTextureUnit {
-//         ActiveTextureUnit::new(self, unit)
-//     }
-// }
+#[repr(u32)]
+pub enum TextureUnit {
+    TextureUnit0 = gl::TEXTURE0,
+    TextureUnit1 = gl::TEXTURE1,
+}
 
-// #[repr(u32)]
-// pub enum TextureUnit {
-//     TextureUnit0 = gl::TEXTURE0,
-//     TextureUnit1 = gl::TEXTURE1,
-// }
-
-// pub struct ActiveTextureUnit<'a> {
-//     texture_unit_slot: PhantomData<&'a mut TextureUnitSlot>,
-//     pub texture_target_1d: TextureTarget1d,
-//     pub texture_target_2d: TextureTarget2d,
-//     pub texture_target_3d: TextureTarget3d,
-// }
-
-// impl<'a> ActiveTextureUnit<'a> {
-//     fn new(_slot: &'a mut TextureUnitSlot, unit: TextureUnit) -> Self {
-//         unsafe {
-//             gl::ActiveTexture(unit as GLenum);
-//         }
-
-//         ActiveTextureUnit {
-//             texture_unit_slot: PhantomData,
-//             texture_target_1d: TextureTarget1d {},
-//             texture_target_2d: TextureTarget2d {},
-//             texture_target_3d: TextureTarget3d {},
-//         }
-//     }
-// }
-
-// NOTE(mickvangelderen): Not necessary.
-//
-// impl<'a> Drop for ActiveTextureUnit<'a> {
-//     fn drop(&mut self) {
-//         unsafe {
-//             gl::ActiveTexture(TextureUnit::TextureUnit0 as GLenum);
-//         }
-//     }
-// }
-
-// macro_rules! impl_texture_unit {
-//     ($Name:ident, $enum:expr) => {
-//         pub struct TextureUnit
-
-//     }
-// }
-
-// #[repr(u32)]
-// pub enum TextureTarget {
-//     Texture1D = gl::TEXTURE_1D,
-//     Texture2D = gl::TEXTURE_2D,
-//     Texture3D = gl::TEXTURE_3D,
-//     Texture1DArray = gl::TEXTURE_1D_ARRAY,
-//     Texture2DArray = gl::TEXTURE_2D_ARRAY,
-//     TextureRectangle = gl::TEXTURE_RECTANGLE,
-//     TextureCubeMap = gl::TEXTURE_CUBE_MAP,
-//     TextureCubeMapArray = gl::TEXTURE_CUBE_MAP_ARRAY,
-//     TextureBuffer = gl::TEXTURE_BUFFER,
-//     Texture2DMultisample = gl::TEXTURE_2D_MULTISAMPLE,
-//     Texture2DMultisampleArray = gl::TEXTURE_2D_MULTISAMPLE_ARRAY,
-// }
+pub struct ActiveTextureUnit<'a> {
+    slot: PhantomData<&'a mut TextureUnitSlot>,
+    pub texture_slot_1d: TextureSlot1D,
+    pub texture_slot_2d: TextureSlot2D,
+    pub texture_slot_3d: TextureSlot3D,
+    pub texture_slot_1d_array: TextureSlot1DArray,
+    pub texture_slot_2d_array: TextureSlot2DArray,
+    pub texture_slot_rectangle: TextureSlotRectangle,
+    pub texture_slot_cube_map: TextureSlotCubeMap,
+    pub texture_slot_cube_map_array: TextureSlotCubeMapArray,
+    pub texture_slot_buffer: TextureSlotBuffer,
+    pub texture_slot_2d_multisample: TextureSlot2DMultisample,
+    pub texture_slot_2d_multisample_array: TextureSlot2DMultisampleArray,
+}
 
 #[repr(u32)]
 pub enum TextureFilter {
