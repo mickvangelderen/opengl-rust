@@ -7,20 +7,20 @@ use core::nonzero::NonZero;
 use gl::types::*;
 
 #[repr(u32)]
-pub enum RenderBufferTarget {
-    RenderBuffer = gl::RENDERBUFFER,
+pub enum RenderbufferTarget {
+    Renderbuffer = gl::RENDERBUFFER,
 }
 
-pub struct RenderBufferId(NonZero<GLuint>);
+pub struct RenderbufferId(NonZero<GLuint>);
 
-impl RenderBufferId {
+impl RenderbufferId {
     #[inline]
     pub fn new() -> Option<Self> {
         let mut ids: [GLuint; 1] = [0];
         unsafe {
             gl::GenRenderbuffers(ids.len() as GLsizei, ids.as_mut_ptr());
         }
-        NonZero::new(ids[0]).map(RenderBufferId)
+        NonZero::new(ids[0]).map(RenderbufferId)
     }
 
     #[inline]
@@ -29,14 +29,14 @@ impl RenderBufferId {
     }
 
     #[inline]
-    pub fn bind(&self, target: RenderBufferTarget) {
+    pub fn bind(&self, target: RenderbufferTarget) {
         unsafe {
             BindRenderbuffer(target, self);
         }
     }
 }
 
-impl Drop for RenderBufferId {
+impl Drop for RenderbufferId {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -46,13 +46,13 @@ impl Drop for RenderBufferId {
 }
 
 #[inline]
-pub unsafe fn BindRenderbuffer(target: RenderBufferTarget, renderbuffer: &RenderBufferId) {
+pub unsafe fn BindRenderbuffer(target: RenderbufferTarget, renderbuffer: &RenderbufferId) {
     gl::BindRenderbuffer(target as GLenum, renderbuffer.as_uint());
 }
 
 #[repr(u32)]
 #[allow(non_camel_case_types)]
-pub enum RenderBufferInternalFormat {
+pub enum RenderbufferInternalFormat {
     R8 = gl::R8,
     R8UI = gl::R8UI,
     R8I = gl::R8I,
@@ -90,8 +90,8 @@ pub enum RenderBufferInternalFormat {
 }
 
 pub unsafe fn RenderbufferStorage(
-    target: RenderBufferTarget,
-    internal_format: RenderBufferInternalFormat,
+    target: RenderbufferTarget,
+    internal_format: RenderbufferInternalFormat,
     width: GLsizei,
     height: GLsizei,
 ) {

@@ -505,13 +505,13 @@ fn main() {
         );
     }
 
-    let main_fb_depth_stencil = RenderBufferId::new().unwrap();
-    main_fb_depth_stencil.bind(RenderBufferTarget::RenderBuffer);
+    let main_fb_depth_stencil = RenderbufferId::new().unwrap();
+    main_fb_depth_stencil.bind(RenderbufferTarget::Renderbuffer);
 
     unsafe {
         gl::RenderbufferStorage(
-            RenderBufferTarget::RenderBuffer as GLenum,
-            RenderBufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
+            RenderbufferTarget::Renderbuffer as GLenum,
+            RenderbufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
             viewport.width(),
             viewport.height(),
         );
@@ -520,7 +520,7 @@ fn main() {
             DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
                 .as_enum(),
             gl::DEPTH_STENCIL_ATTACHMENT,
-            RenderBufferTarget::RenderBuffer as GLenum,
+            RenderbufferTarget::Renderbuffer as GLenum,
             main_fb_depth_stencil.as_uint(),
         );
     }
@@ -689,11 +689,11 @@ fn main() {
                                     &mut read_framebuffer_slot,
                                 ).bind(&main_fb);
 
-                                main_fb_depth_stencil.bind(RenderBufferTarget::RenderBuffer);
+                                main_fb_depth_stencil.bind(RenderbufferTarget::Renderbuffer);
 
                                 gl::RenderbufferStorage(
-                                    RenderBufferTarget::RenderBuffer as GLenum,
-                                    RenderBufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
+                                    RenderbufferTarget::Renderbuffer as GLenum,
+                                    RenderbufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
                                     viewport.width(),
                                     viewport.height(),
                                 );
