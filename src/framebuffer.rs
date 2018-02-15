@@ -317,6 +317,21 @@ impl<'a> BoundFramebufferId<'a, FramebufferId, DrawReadFramebufferTarget<'a>> {
         }
         self
     }
+
+    pub fn detach_renderbuffer(
+        &mut self,
+        attachment: FramebufferAttachment,
+    ) -> &mut Self {
+        unsafe {
+            gl::FramebufferRenderbuffer(
+                self.target.as_enum(),
+                attachment as GLenum,
+                gl::RENDERBUFFER,
+                0
+            );
+        }
+        self
+    }
 }
 
 #[cfg(test)]
