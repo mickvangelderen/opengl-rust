@@ -285,7 +285,7 @@ impl<'a> BoundFramebufferId<'a, FramebufferId, DrawReadFramebufferTarget<'a>> {
     /// is set to 0. GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL and
     /// GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE are set to the
     /// default values 0 and GL_TEXTURE_CUBE_MAP_POSITIVE_X, respectively.
-    pub unsafe fn texture_2d(
+    pub unsafe fn attach_texture_2d(
         &mut self,
         attachment: FramebufferAttachment,
         textarget: GLenum,
@@ -302,7 +302,7 @@ impl<'a> BoundFramebufferId<'a, FramebufferId, DrawReadFramebufferTarget<'a>> {
         self
     }
 
-    pub fn renderbuffer(
+    pub fn attach_renderbuffer(
         &mut self,
         attachment: FramebufferAttachment,
         renderbuffer_id: &RenderbufferId,

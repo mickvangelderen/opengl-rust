@@ -509,13 +509,13 @@ fn main() {
     unsafe {
         DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
             .bind(&main_fb)
-            .texture_2d(
+            .attach_texture_2d(
                 FramebufferAttachment::color(0),
                 gl::TEXTURE_2D,
                 main_fb_tex.id(),
                 0,
             )
-            .renderbuffer(FramebufferAttachment::DepthStencil, &main_fb_depth_stencil);
+            .attach_renderbuffer(FramebufferAttachment::DepthStencil, &main_fb_depth_stencil);
     }
 
     // FIXME
