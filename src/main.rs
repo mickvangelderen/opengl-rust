@@ -466,17 +466,14 @@ fn main() {
         );
     }
 
-    // Create a framebuffer to render to.
-    let main_fb = FramebufferId::new().unwrap();
-
     let main_fb_tex = TextureId::new().unwrap();
 
     unsafe {
-        let mut atu = texture_unit_slot.activate(TextureUnit::TextureUnit0);
-
-        let mut bound_main_fb_tex = atu.texture_slot_2d.target().bind(&main_fb_tex);
-
-        bound_main_fb_tex
+        // let mut atu = texture_unit_slot.activate(TextureUnit::TextureUnit0);
+        // let mut bound_main_fb_tex = atu.texture_slot_2d.target().bind(&main_fb_tex);
+        texture_unit_slot.activate(TextureUnit::TextureUnit0)
+            .texture_slot_2d.target()
+            .bind(&main_fb_tex)
             .min_filter(TextureFilter::Nearest)
             .mag_filter(TextureFilter::Nearest)
             .wrap_s(gl::CLAMP_TO_EDGE as GLint)
@@ -490,14 +487,19 @@ fn main() {
                 gl::UNSIGNED_BYTE, // component format
                 std::ptr::null(),  // data
             );
+    }
 
+    // Create a framebuffer to render to.
+    let main_fb = FramebufferId::new().unwrap();
+
+    unsafe {
         let mut bound_fb =
             DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
                 .bind(&main_fb);
 
         bound_fb.texture_2d(
             FramebufferAttachment::color(0),
-            bound_main_fb_tex.target_as_enum(),
+            gl::TEXTURE_2D,
             main_fb_tex.id(),
             0,
         );
