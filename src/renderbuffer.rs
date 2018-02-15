@@ -5,11 +5,8 @@ extern crate gl;
 
 use core::nonzero::NonZero;
 use gl::types::*;
-
-#[repr(u32)]
-pub enum RenderbufferTarget {
-    Renderbuffer = gl::RENDERBUFFER,
-}
+use std::marker::PhantomData;
+use phantomdata::into_phantom_data;
 
 pub struct RenderbufferId(NonZero<GLuint>);
 
@@ -24,15 +21,8 @@ impl RenderbufferId {
     }
 
     #[inline]
-    pub unsafe fn as_uint(&self) -> GLuint {
+    pub unsafe fn as_u32(&self) -> GLuint {
         self.0.get()
-    }
-
-    #[inline]
-    pub fn bind(&self, target: RenderbufferTarget) {
-        unsafe {
-            BindRenderbuffer(target, self);
-        }
     }
 }
 
@@ -40,14 +30,79 @@ impl Drop for RenderbufferId {
     #[inline]
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteRenderbuffers(1, &self.as_uint());
+            gl::DeleteRenderbuffers(1, &self.as_u32());
         }
     }
 }
 
-#[inline]
-pub unsafe fn BindRenderbuffer(target: RenderbufferTarget, renderbuffer: &RenderbufferId) {
-    gl::BindRenderbuffer(target as GLenum, renderbuffer.as_uint());
+pub struct RenderbufferSlot;
+
+impl RenderbufferSlot {
+    #[inline]
+    pub fn target(&mut self) -> RenderbufferTarget {
+        RenderbufferTarget::new(self)
+    }
+}
+
+pub struct RenderbufferTarget<'s>(PhantomData<&'s mut RenderbufferSlot>);
+
+impl<'s> RenderbufferTarget<'s> {
+    pub fn new(slot: &'s mut RenderbufferSlot) -> Self {
+        RenderbufferTarget(into_phantom_data(slot))
+    }
+}
+
+impl<'s> RenderbufferTarget<'s> {
+    #[inline]
+    fn as_enum(&self) -> u32 {
+        gl::RENDERBUFFER
+    }
+
+    #[inline]
+    pub fn unbind(self) {
+        unsafe {
+            gl::BindRenderbuffer(self.as_enum(), 0);
+        }
+    }
+
+    #[inline]
+    pub fn bind<'t, 'i>(
+        &'t mut self,
+        renderbuffer_id: &'i RenderbufferId,
+    ) -> BoundRenderbufferId<'s, 't, 'i> {
+        unsafe {
+            gl::BindRenderbuffer(self.as_enum(), renderbuffer_id.as_u32());
+        }
+        BoundRenderbufferId {
+            target: self,
+            renderbuffer_id: into_phantom_data(renderbuffer_id),
+        }
+    }
+}
+
+pub struct BoundRenderbufferId<'s: 't, 't, 'i> {
+    target: &'t mut RenderbufferTarget<'s>,
+    renderbuffer_id: PhantomData<&'i RenderbufferId>,
+}
+
+impl<'s: 't, 't, 'i> BoundRenderbufferId<'s, 't, 'i> {
+    #[inline]
+    pub fn storage(
+        &mut self,
+        internal_format: RenderbufferInternalFormat,
+        width: GLsizei,
+        height: GLsizei,
+    ) -> &mut Self {
+        unsafe {
+            gl::RenderbufferStorage(
+                self.target.as_enum(),
+                internal_format as GLenum,
+                width,
+                height,
+            );
+        }
+        self
+    }
 }
 
 #[repr(u32)]
@@ -87,13 +142,4 @@ pub enum RenderbufferInternalFormat {
     DEPTH24_STENCIL8 = gl::DEPTH24_STENCIL8,
     DEPTH32F_STENCIL8 = gl::DEPTH32F_STENCIL8,
     STENCIL_INDEX8 = gl::STENCIL_INDEX8,
-}
-
-pub unsafe fn RenderbufferStorage(
-    target: RenderbufferTarget,
-    internal_format: RenderbufferInternalFormat,
-    width: GLsizei,
-    height: GLsizei,
-) {
-    gl::RenderbufferStorage(target as GLenum, internal_format as GLenum, width, height);
 }

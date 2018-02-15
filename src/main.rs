@@ -12,6 +12,7 @@ extern crate image;
 extern crate simple_field_offset;
 
 pub mod camera;
+pub mod phantomdata;
 pub mod shader;
 pub mod framebuffer;
 pub mod renderbuffer;
@@ -195,6 +196,8 @@ fn main() {
 
     let mut texture_unit_slot = TextureUnitSlot;
     let mut program_slot = ProgramSlot {};
+    let mut renderbuffer_slot = RenderbufferSlot;
+    let mut renderbuffer_target = renderbuffer_slot.target();
     let mut draw_framebuffer_slot = DrawFramebufferSlot {};
     let mut read_framebuffer_slot = ReadFramebufferSlot {};
 
@@ -471,8 +474,10 @@ fn main() {
     unsafe {
         // let mut atu = texture_unit_slot.activate(TextureUnit::TextureUnit0);
         // let mut bound_main_fb_tex = atu.texture_slot_2d.target().bind(&main_fb_tex);
-        texture_unit_slot.activate(TextureUnit::TextureUnit0)
-            .texture_slot_2d.target()
+        texture_unit_slot
+            .activate(TextureUnit::TextureUnit0)
+            .texture_slot_2d
+            .target()
             .bind(&main_fb_tex)
             .min_filter(TextureFilter::Nearest)
             .mag_filter(TextureFilter::Nearest)
@@ -489,6 +494,17 @@ fn main() {
             );
     }
 
+    let main_fb_depth_stencil = RenderbufferId::new().unwrap();
+
+    // Set the internal format, width and height.
+    renderbuffer_target
+        .bind(&main_fb_depth_stencil)
+        .storage(
+            RenderbufferInternalFormat::DEPTH24_STENCIL8,
+            viewport.width(),
+            viewport.height(),
+        );
+
     // Create a framebuffer to render to.
     let main_fb = FramebufferId::new().unwrap();
 
@@ -503,25 +519,12 @@ fn main() {
             main_fb_tex.id(),
             0,
         );
-    }
 
-    let main_fb_depth_stencil = RenderbufferId::new().unwrap();
-    main_fb_depth_stencil.bind(RenderbufferTarget::Renderbuffer);
-
-    unsafe {
-        gl::RenderbufferStorage(
-            RenderbufferTarget::Renderbuffer as GLenum,
-            RenderbufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
-            viewport.width(),
-            viewport.height(),
-        );
         gl::FramebufferRenderbuffer(
-            // FIXME: impl framebufferrenderbuffer on aboundframebuffer
-            DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
-                .as_enum(),
+            gl::FRAMEBUFFER,
             gl::DEPTH_STENCIL_ATTACHMENT,
-            RenderbufferTarget::Renderbuffer as GLenum,
-            main_fb_depth_stencil.as_uint(),
+            gl::RENDERBUFFER,
+            main_fb_depth_stencil.as_u32(),
         );
     }
 
@@ -679,25 +682,13 @@ fn main() {
                                     );
                             }
 
-                            // Update framebuffer depth+stencil size.
-                            unsafe {
-                                // TODO(mickvangelderen): Is this
-                                // required at all for
-                                // RenderbufferStorage?
-                                let _bound_fb = DrawReadFramebufferTarget::new(
-                                    &mut draw_framebuffer_slot,
-                                    &mut read_framebuffer_slot,
-                                ).bind(&main_fb);
-
-                                main_fb_depth_stencil.bind(RenderbufferTarget::Renderbuffer);
-
-                                gl::RenderbufferStorage(
-                                    RenderbufferTarget::Renderbuffer as GLenum,
-                                    RenderbufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
+                            renderbuffer_target
+                                .bind(&main_fb_depth_stencil)
+                                .storage(
+                                    RenderbufferInternalFormat::DEPTH24_STENCIL8,
                                     viewport.width(),
                                     viewport.height(),
                                 );
-                            }
 
                             // Update uniforms dependent on viewport size.
                             program_slot
