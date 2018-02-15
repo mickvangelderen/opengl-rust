@@ -497,35 +497,25 @@ fn main() {
     let main_fb_depth_stencil = RenderbufferId::new().unwrap();
 
     // Set the internal format, width and height.
-    renderbuffer_target
-        .bind(&main_fb_depth_stencil)
-        .storage(
-            RenderbufferInternalFormat::DEPTH24_STENCIL8,
-            viewport.width(),
-            viewport.height(),
-        );
+    renderbuffer_target.bind(&main_fb_depth_stencil).storage(
+        RenderbufferInternalFormat::DEPTH24_STENCIL8,
+        viewport.width(),
+        viewport.height(),
+    );
 
     // Create a framebuffer to render to.
     let main_fb = FramebufferId::new().unwrap();
 
     unsafe {
-        let mut bound_fb =
-            DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
-                .bind(&main_fb);
-
-        bound_fb.texture_2d(
-            FramebufferAttachment::color(0),
-            gl::TEXTURE_2D,
-            main_fb_tex.id(),
-            0,
-        );
-
-        gl::FramebufferRenderbuffer(
-            gl::FRAMEBUFFER,
-            gl::DEPTH_STENCIL_ATTACHMENT,
-            gl::RENDERBUFFER,
-            main_fb_depth_stencil.as_u32(),
-        );
+        DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
+            .bind(&main_fb)
+            .texture_2d(
+                FramebufferAttachment::color(0),
+                gl::TEXTURE_2D,
+                main_fb_tex.id(),
+                0,
+            )
+            .renderbuffer(FramebufferAttachment::DepthStencil, &main_fb_depth_stencil);
     }
 
     // FIXME
@@ -682,13 +672,11 @@ fn main() {
                                     );
                             }
 
-                            renderbuffer_target
-                                .bind(&main_fb_depth_stencil)
-                                .storage(
-                                    RenderbufferInternalFormat::DEPTH24_STENCIL8,
-                                    viewport.width(),
-                                    viewport.height(),
-                                );
+                            renderbuffer_target.bind(&main_fb_depth_stencil).storage(
+                                RenderbufferInternalFormat::DEPTH24_STENCIL8,
+                                viewport.width(),
+                                viewport.height(),
+                            );
 
                             // Update uniforms dependent on viewport size.
                             program_slot

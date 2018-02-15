@@ -6,6 +6,7 @@ extern crate gl;
 use core::nonzero::NonZero;
 use gl::types::*;
 use std::marker::PhantomData;
+use renderbuffer::RenderbufferId;
 
 pub trait HasFramebufferId {
     unsafe fn id(&self) -> u32;
@@ -298,6 +299,22 @@ impl<'a> BoundFramebufferId<'a, FramebufferId, DrawReadFramebufferTarget<'a>> {
             texture,
             level,
         );
+        self
+    }
+
+    pub fn renderbuffer(
+        &mut self,
+        attachment: FramebufferAttachment,
+        renderbuffer_id: &RenderbufferId,
+    ) -> &mut Self {
+        unsafe {
+            gl::FramebufferRenderbuffer(
+                self.target.as_enum(),
+                attachment as GLenum,
+                gl::RENDERBUFFER,
+                renderbuffer_id.as_u32(),
+            );
+        }
         self
     }
 }
