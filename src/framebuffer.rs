@@ -7,23 +7,31 @@ use core::nonzero::NonZero;
 use gl::types::*;
 use std::marker::PhantomData;
 use renderbuffer::RenderbufferId;
+use texture::TextureId;
+use phantomdata::into_phantom_data;
 
-pub trait HasFramebufferId {
-    unsafe fn id(&self) -> u32;
+pub trait MaybeDefaultFramebufferId {
+    unsafe fn as_u32(&self) -> u32;
 }
 
-pub struct DefaultFramebufferId(());
+pub struct DefaultFramebufferId(u32);
 
-pub const DEFAULT_FRAMEBUFFER_ID: DefaultFramebufferId = DefaultFramebufferId(());
-
-impl HasFramebufferId for DefaultFramebufferId {
+impl DefaultFramebufferId {
     #[inline]
-    unsafe fn id(&self) -> u32 {
-        0
+    unsafe fn as_u32(&self) -> u32 {
+        self.0
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+pub const DEFAULT_FRAMEBUFFER_ID: DefaultFramebufferId = DefaultFramebufferId(0);
+
+impl MaybeDefaultFramebufferId for DefaultFramebufferId {
+    #[inline]
+    unsafe fn as_u32(&self) -> u32 {
+        self.as_u32()
+    }
+}
+
 pub struct FramebufferId(NonZero<GLuint>);
 
 impl FramebufferId {
@@ -41,14 +49,14 @@ impl Drop for FramebufferId {
     #[inline]
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteFramebuffers(1, &self.id());
+            gl::DeleteFramebuffers(1, &self.as_u32());
         }
     }
 }
 
-impl HasFramebufferId for FramebufferId {
+impl MaybeDefaultFramebufferId for FramebufferId {
     #[inline]
-    unsafe fn id(&self) -> u32 {
+    unsafe fn as_u32(&self) -> u32 {
         self.0.get()
     }
 }
@@ -71,6 +79,7 @@ pub enum FramebufferAttachment {
 }
 
 impl FramebufferAttachment {
+    #[inline]
     pub fn color(index: u32) -> Self {
         // TODO: Is this function unsafe? What happens when you do color(1234123412341234) and then use that?
         unsafe {
@@ -202,16 +211,16 @@ pub trait HasReadFramebufferSlot<'a>: IsFramebufferTarget {
 pub trait IsFramebufferTarget: Sized {
     fn as_enum(&self) -> u32;
 
-    fn bind<THasFramebufferId: HasFramebufferId>(
+    fn bind<TMaybeDefaultFramebufferId: MaybeDefaultFramebufferId>(
         self,
-        framebuffer: &THasFramebufferId,
-    ) -> BoundFramebufferId<THasFramebufferId, Self> {
+        framebuffer_id: &TMaybeDefaultFramebufferId,
+    ) -> BoundFramebufferId<TMaybeDefaultFramebufferId, Self> {
         unsafe {
-            gl::BindFramebuffer(self.as_enum(), framebuffer.id());
+            gl::BindFramebuffer(self.as_enum(), framebuffer_id.as_u32());
         }
         BoundFramebufferId {
             target: self,
-            framebuffer: PhantomData::<&THasFramebufferId>,
+            framebuffer_id: into_phantom_data(framebuffer_id),
         }
     }
 }
@@ -229,17 +238,17 @@ pub trait IsReadableBoundFramebufferId {
 #[must_use]
 pub struct BoundFramebufferId<
     'a,
-    THasFramebufferId: 'a + HasFramebufferId,
+    TMaybeDefaultFramebufferId: 'a + MaybeDefaultFramebufferId,
     TFramebufferTarget: 'a + IsFramebufferTarget,
 > {
     target: TFramebufferTarget,
-    framebuffer: PhantomData<&'a THasFramebufferId>,
+    framebuffer_id: PhantomData<&'a TMaybeDefaultFramebufferId>,
 }
 
-impl<'a, THasFramebufferId, THasDrawFramebufferSlot> IsDrawableBoundFramebufferId
-    for BoundFramebufferId<'a, THasFramebufferId, THasDrawFramebufferSlot>
+impl<'a, TMaybeDefaultFramebufferId, THasDrawFramebufferSlot> IsDrawableBoundFramebufferId
+    for BoundFramebufferId<'a, TMaybeDefaultFramebufferId, THasDrawFramebufferSlot>
 where
-    THasFramebufferId: 'a + HasFramebufferId,
+    TMaybeDefaultFramebufferId: 'a + MaybeDefaultFramebufferId,
     THasDrawFramebufferSlot: 'a + HasDrawFramebufferSlot<'a>,
 {
     fn draw(&self) -> bool {
@@ -247,10 +256,10 @@ where
     }
 }
 
-impl<'a, THasFramebufferId, THasReadFramebufferSlot> IsReadableBoundFramebufferId
-    for BoundFramebufferId<'a, THasFramebufferId, THasReadFramebufferSlot>
+impl<'a, TMaybeDefaultFramebufferId, THasReadFramebufferSlot> IsReadableBoundFramebufferId
+    for BoundFramebufferId<'a, TMaybeDefaultFramebufferId, THasReadFramebufferSlot>
 where
-    THasFramebufferId: 'a + HasFramebufferId,
+    TMaybeDefaultFramebufferId: 'a + MaybeDefaultFramebufferId,
     THasReadFramebufferSlot: 'a + HasReadFramebufferSlot<'a>,
 {
     fn read(&self) -> bool {
@@ -289,14 +298,14 @@ impl<'a> BoundFramebufferId<'a, FramebufferId, DrawReadFramebufferTarget<'a>> {
         &mut self,
         attachment: FramebufferAttachment,
         textarget: GLenum,
-        texture: GLuint,
+        texture_id: &TextureId,
         level: GLint,
     ) -> &mut Self {
         gl::FramebufferTexture2D(
             self.target.as_enum(),
             attachment as GLenum,
             textarget,
-            texture,
+            texture_id.as_u32(),
             level,
         );
         self

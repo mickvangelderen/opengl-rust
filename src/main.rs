@@ -512,7 +512,7 @@ fn main() {
             .attach_texture_2d(
                 FramebufferAttachment::color(0),
                 gl::TEXTURE_2D,
-                main_fb_tex.id(),
+                &main_fb_tex,
                 0,
             )
             .attach_renderbuffer(FramebufferAttachment::DepthStencil, &main_fb_depth_stencil);
@@ -781,13 +781,15 @@ fn main() {
                 .activate(TextureUnit::TextureUnit0)
                 .texture_slot_2d
                 .target()
-                .bind(&diffuse_texture_id);
+                .bind(&diffuse_texture_id)
+                .persist();
 
             texture_unit_slot
                 .activate(TextureUnit::TextureUnit1)
                 .texture_slot_2d
                 .target()
-                .bind(&specular_texture_id);
+                .bind(&specular_texture_id)
+                .persist();
 
             let _bound_program = program_slot.bind(&program);
 
@@ -901,7 +903,8 @@ fn main() {
                 .activate(TextureUnit::TextureUnit0)
                 .texture_slot_2d
                 .target()
-                .bind(&main_fb_tex);
+                .bind(&main_fb_tex)
+                .persist();
 
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0 as GLint, 4 as GLsizei);
         }
