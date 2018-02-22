@@ -12,8 +12,10 @@ extern crate image;
 extern crate simple_field_offset;
 
 pub mod camera;
+pub mod phantomdata;
 pub mod shader;
 pub mod framebuffer;
+pub mod renderbuffer;
 pub mod program;
 pub mod import;
 pub mod palette;
@@ -32,6 +34,7 @@ use camera::*;
 // use shader::*;
 use shader::specialization::*;
 use framebuffer::*;
+use renderbuffer::*;
 use program::*;
 // use import::*;
 // use palette::*;
@@ -69,20 +72,20 @@ struct PointLight {
     position: Vector3<f32>,
 }
 
-struct DirectionalLight {
-    color: LightColor,
-    attenuation: LightAttenuation,
-    direction: Vector3<f32>,
-}
+// struct DirectionalLight {
+//     color: LightColor,
+//     attenuation: LightAttenuation,
+//     direction: Vector3<f32>,
+// }
 
-struct SpotLight {
-    color: LightColor,
-    attenuation: LightAttenuation,
-    position: Vector3<f32>,
-    direction: Vector3<f32>,
-    inner_angle: Rad<f32>,
-    outer_angle: Rad<f32>,
-}
+// struct SpotLight {
+//     color: LightColor,
+//     attenuation: LightAttenuation,
+//     position: Vector3<f32>,
+//     direction: Vector3<f32>,
+//     inner_angle: Rad<f32>,
+//     outer_angle: Rad<f32>,
+// }
 
 impl PointLight {
     fn set_standard_program_uniforms(
@@ -191,6 +194,13 @@ fn main() {
 
     gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
 
+    let mut texture_unit_slot = TextureUnitSlot;
+    let mut program_slot = ProgramSlot {};
+    let mut renderbuffer_slot = RenderbufferSlot;
+    let mut renderbuffer_target = renderbuffer_slot.target();
+    let mut draw_framebuffer_slot = DrawFramebufferSlot {};
+    let mut read_framebuffer_slot = ReadFramebufferSlot {};
+
     let program = {
         let vertex_src = file_to_string("assets/standard.vert").unwrap();
         let vertex_shader = VertexShaderId::new()
@@ -275,39 +285,31 @@ fn main() {
 
         let mut diffuse_texture_id = TextureId::new().unwrap();
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, diffuse_texture_id.as_uint());
-
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MIN_FILTER,
-                gl::LINEAR_MIPMAP_LINEAR as GLint,
-            );
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MAG_FILTER,
-                gl::LINEAR_MIPMAP_LINEAR as GLint,
-            );
-
             // Each row is expected to be padded to be a multiple of
             // GL_UNPACK_ALIGNMENT which is 4 by default. Here we set it to
             // 1 which means the rows will not be padded.
+
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
-            gl::TexImage2D(
-                gl::TEXTURE_2D,                // Target
-                0,                             // MIP map level
-                gl::RGBA8 as GLint,            // internal format
-                img.width() as GLint,          // width
-                img.height() as GLint,         // height
-                0,                             // border, must be zero
-                gl::RGBA,                      // format
-                gl::UNSIGNED_BYTE,             // component format
-                img.as_ptr() as *const GLvoid, // data
-            );
-
-            gl::GenerateMipmap(gl::TEXTURE_2D);
+            texture_unit_slot
+                .activate(TextureUnit::TextureUnit0)
+                .texture_slot_2d
+                .target()
+                .bind(&diffuse_texture_id)
+                .min_filter(TextureFilter::LinearMipmapLinear)
+                .mag_filter(TextureFilter::LinearMipmapLinear)
+                .wrap_s(gl::REPEAT as GLint)
+                .wrap_t(gl::REPEAT as GLint)
+                .image_2d(
+                    0,                             // MIP map level
+                    gl::RGBA8 as GLint,            // internal format
+                    img.width() as GLint,          // width
+                    img.height() as GLint,         // height
+                    gl::RGBA,                      // format
+                    gl::UNSIGNED_BYTE,             // component format
+                    img.as_ptr() as *const GLvoid, // data
+                )
+                .generate_mipmap();
         }
 
         diffuse_texture_id
@@ -320,60 +322,42 @@ fn main() {
 
         let mut specular_texture_id = TextureId::new().unwrap();
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, specular_texture_id.as_uint());
-
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MIN_FILTER,
-                gl::LINEAR_MIPMAP_LINEAR as GLint,
-            );
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MAG_FILTER,
-                gl::LINEAR_MIPMAP_LINEAR as GLint,
-            );
-
             // Each row is expected to be padded to be a multiple of
             // GL_UNPACK_ALIGNMENT which is 4 by default. Here we set it to
             // 1 which means the rows will not be padded.
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
-            gl::TexImage2D(
-                gl::TEXTURE_2D,                // Target
-                0,                             // MIP map level
-                gl::RGBA8 as GLint,            // internal format
-                img.width() as GLint,          // width
-                img.height() as GLint,         // height
-                0,                             // border, must be zero
-                gl::RGBA,                      // format
-                gl::UNSIGNED_BYTE,             // component format
-                img.as_ptr() as *const GLvoid, // data
-            );
-
-            gl::GenerateMipmap(gl::TEXTURE_2D);
+            texture_unit_slot
+                .activate(TextureUnit::TextureUnit0)
+                .texture_slot_2d
+                .target()
+                .bind(&specular_texture_id)
+                .min_filter(TextureFilter::LinearMipmapLinear)
+                .mag_filter(TextureFilter::LinearMipmapLinear)
+                .wrap_s(gl::REPEAT as GLint)
+                .wrap_t(gl::REPEAT as GLint)
+                .image_2d(
+                    0,                             // MIP map level
+                    gl::RGBA8 as GLint,            // internal format
+                    img.width() as GLint,          // width
+                    img.height() as GLint,         // height
+                    gl::RGBA,                      // format
+                    gl::UNSIGNED_BYTE,             // component format
+                    img.as_ptr() as *const GLvoid, // data
+                )
+                .generate_mipmap();
         }
 
         specular_texture_id
     };
 
-    // Set up texture location for program.
-    program.bind();
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.diffuse"));
-        gl::Uniform1i(loc, 0);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.specular"));
-        gl::Uniform1i(loc, 1);
-    }
-
-    unsafe {
-        let loc = gl::GetUniformLocation(program.as_uint(), gl_str!("material.shininess"));
-        gl::Uniform1f(loc, 64.0);
-    }
+    program_slot
+        .bind(&program)
+        // Set texture units.
+        .set_uniform_1i(&program.uniform_location(static_cstr!("material.diffuse")), 0)
+        .set_uniform_1i(&program.uniform_location(static_cstr!("material.specular")), 1)
+        // Set shininess.
+        .set_uniform_1f(&program.uniform_location(static_cstr!("material.shininess")), 64.0);
 
     // Point Lights.
 
@@ -485,65 +469,62 @@ fn main() {
         );
     }
 
+    let main_fb_tex = TextureId::new().unwrap();
+
+    unsafe {
+        // let mut atu = texture_unit_slot.activate(TextureUnit::TextureUnit0);
+        // let mut bound_main_fb_tex = atu.texture_slot_2d.target().bind(&main_fb_tex);
+        texture_unit_slot
+            .activate(TextureUnit::TextureUnit0)
+            .texture_slot_2d
+            .target()
+            .bind(&main_fb_tex)
+            .min_filter(TextureFilter::Nearest)
+            .mag_filter(TextureFilter::Nearest)
+            .wrap_s(gl::CLAMP_TO_EDGE as GLint)
+            .wrap_t(gl::CLAMP_TO_EDGE as GLint)
+            .image_2d(
+                0,                 // MIP map level
+                gl::RGB8 as GLint, // internal format
+                viewport.width(),
+                viewport.height(),
+                gl::RGB,           // format
+                gl::UNSIGNED_BYTE, // component format
+                std::ptr::null(),  // data
+            );
+    }
+
+    let main_fb_depth_stencil = RenderbufferId::new().unwrap();
+
+    // Set the internal format, width and height.
+    renderbuffer_target.bind(&main_fb_depth_stencil).storage(
+        RenderbufferInternalFormat::DEPTH24_STENCIL8,
+        viewport.width(),
+        viewport.height(),
+    );
+
     // Create a framebuffer to render to.
     let main_fb = FramebufferId::new().unwrap();
-    main_fb.bind(FramebufferTarget::Framebuffer);
-
-    let main_fb_tex = TextureId::new().unwrap();
-    main_fb_tex.bind(TextureTarget::Texture2D);
 
     unsafe {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-
-        gl::TexImage2D(
-            gl::TEXTURE_2D,    // Target
-            0,                 // MIP map level
-            gl::RGB8 as GLint, // internal format
-            viewport.width(),
-            viewport.height(),
-            0,                 // border, must be zero
-            gl::RGB,           // format
-            gl::UNSIGNED_BYTE, // component format
-            std::ptr::null(),  // data
-        );
-
-        gl::FramebufferTexture2D(
-            FramebufferTarget::Framebuffer as GLenum,
-            FramebufferAttachment::color(0) as GLenum,
-            TextureTarget::Texture2D as GLenum,
-            main_fb_tex.as_uint(),
-            0,
-        );
+        DrawReadFramebufferTarget::new(&mut draw_framebuffer_slot, &mut read_framebuffer_slot)
+            .bind(&main_fb)
+            .attach_texture_2d(
+                FramebufferAttachment::color(0),
+                gl::TEXTURE_2D,
+                &main_fb_tex,
+                0,
+            )
+            .attach_renderbuffer(FramebufferAttachment::DepthStencil, &main_fb_depth_stencil);
     }
 
-    let main_fb_depth_stencil = RenderBufferId::new().unwrap();
-    main_fb_depth_stencil.bind(RenderBufferTarget::RenderBuffer);
-
-    unsafe {
-        gl::RenderbufferStorage(
-            RenderBufferTarget::RenderBuffer as GLenum,
-            RenderBufferInternalFormat::DEPTH24_STENCIL8 as GLenum,
-            viewport.width(),
-            viewport.height(),
-        );
-        gl::FramebufferRenderbuffer(
-            FramebufferTarget::Framebuffer as GLenum,
-            gl::DEPTH_STENCIL_ATTACHMENT,
-            RenderBufferTarget::RenderBuffer as GLenum,
-            main_fb_depth_stencil.as_uint(),
-        );
-    }
-
-    match unsafe { gl::CheckFramebufferStatus(FramebufferTarget::Framebuffer as GLenum) } {
+    // FIXME
+    match unsafe { gl::CheckFramebufferStatus(gl::FRAMEBUFFER) } {
         gl::FRAMEBUFFER_COMPLETE => {}
         _ => {
             panic!("Framebuffer not complete");
         }
     }
-
-    // Rebind the default framebuffer.
-    FramebufferId::bind_default(FramebufferTarget::Framebuffer);
 
     let post_vao = VertexArrayId::new().unwrap();
     let post_vbo = VertexBufferId::new().unwrap();
@@ -568,25 +549,16 @@ fn main() {
             .unwrap()
     };
 
-    unsafe {
-        post_program.bind();
-
-        {
-            let loc = gl::GetUniformLocation(
-                post_program.as_uint(),
-                gl_str!("dx"),
-            );
-            gl::Uniform1f(loc, 1.0 / viewport.width() as f32);
-        }
-
-        {
-            let loc = gl::GetUniformLocation(
-                post_program.as_uint(),
-                gl_str!("dy"),
-            );
-            gl::Uniform1f(loc, 1.0 / viewport.height() as f32);
-        }
-    }
+    program_slot
+        .bind(&post_program)
+        .set_uniform_1f(
+            &post_program.uniform_location(static_cstr!("dx")),
+            1.0 / viewport.width() as f32,
+        )
+        .set_uniform_1f(
+            &post_program.uniform_location(static_cstr!("dy")),
+            1.0 / viewport.height() as f32,
+        );
 
     unsafe {
         post_vao.bind();
@@ -681,7 +653,44 @@ fn main() {
                         Resized(w, h) => {
                             gl_window.resize(w, h);
                             viewport.update().width(w as GLsizei).height(h as GLsizei);
+
+                            // Update framebuffer color texture size.
+                            unsafe {
+                                texture_unit_slot
+                                    .activate(TextureUnit::TextureUnit0)
+                                    .texture_slot_2d
+                                    .target()
+                                    .bind(&main_fb_tex)
+                                    .image_2d(
+                                        0,                 // MIP map level
+                                        gl::RGB8 as GLint, // internal format
+                                        viewport.width(),
+                                        viewport.height(),
+                                        gl::RGB,           // format
+                                        gl::UNSIGNED_BYTE, // component format
+                                        std::ptr::null(),  // data
+                                    );
+                            }
+
+                            renderbuffer_target.bind(&main_fb_depth_stencil).storage(
+                                RenderbufferInternalFormat::DEPTH24_STENCIL8,
+                                viewport.width(),
+                                viewport.height(),
+                            );
+
+                            // Update uniforms dependent on viewport size.
+                            program_slot
+                                .bind(&post_program)
+                                .set_uniform_1f(
+                                    &post_program.uniform_location(static_cstr!("dx")),
+                                    1.0 / viewport.width() as f32,
+                                )
+                                .set_uniform_1f(
+                                    &post_program.uniform_location(static_cstr!("dy")),
+                                    1.0 / viewport.height() as f32,
+                                );
                         }
+
                         KeyboardInput { input, .. } => {
                             let pressed = if let Pressed = input.state {
                                 true
@@ -745,34 +754,44 @@ fn main() {
             });
         }
 
-
         point_lights[0].position = Quaternion::from_angle_y(Deg(delta_start * 90.0))
             .rotate_vector(Vector3::new(3.0, 2.0, 0.0));
 
+        let pos_from_wld_to_cam_space = camera.pos_from_wld_to_cam_space();
+
+        let pos_from_cam_to_clp_space = Matrix4::from(PerspectiveFov {
+            fovy: camera.fov,
+            aspect: viewport.aspect(),
+            near: INITIAL_NEAR,
+            far: INITIAL_FAR,
+        });
+
         // Render.
         unsafe {
-            // FramebufferId::bind_default(FramebufferTarget::Framebuffer);
-            main_fb.bind(FramebufferTarget::Framebuffer);
+            let _bound_fb = DrawReadFramebufferTarget::new(
+                &mut draw_framebuffer_slot,
+                &mut read_framebuffer_slot,
+            ).bind(&main_fb);
+
             gl::ClearColor(0.7, 0.8, 0.9, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Enable(gl::DEPTH_TEST);
 
-            gl::ActiveTexture(gl::TEXTURE0);
-            diffuse_texture_id.bind(TextureTarget::Texture2D);
+            texture_unit_slot
+                .activate(TextureUnit::TextureUnit0)
+                .texture_slot_2d
+                .target()
+                .bind(&diffuse_texture_id)
+                .persist();
 
-            gl::ActiveTexture(gl::TEXTURE1);
-            specular_texture_id.bind(TextureTarget::Texture2D);
+            texture_unit_slot
+                .activate(TextureUnit::TextureUnit1)
+                .texture_slot_2d
+                .target()
+                .bind(&specular_texture_id)
+                .persist();
 
-            program.bind();
-
-            let pos_from_wld_to_cam_space = camera.pos_from_wld_to_cam_space();
-
-            let pos_from_cam_to_clp_space = Matrix4::from(PerspectiveFov {
-                fovy: camera.fov,
-                aspect: viewport.aspect(),
-                near: INITIAL_NEAR,
-                far: INITIAL_FAR,
-            });
+            let _bound_program = program_slot.bind(&program);
 
             {
                 let pos_from_obj_to_wld_space = Matrix4::from_translation(Vector3::zero())
@@ -823,9 +842,11 @@ fn main() {
                 gl::UNSIGNED_INT,
                 std::ptr::null(),
             );
+        }
 
+        unsafe {
             // Draw point lights.
-            light_program.bind();
+            let _bound_program = program_slot.bind(&light_program);
 
             light_vertex_array.bind();
 
@@ -862,17 +883,29 @@ fn main() {
                     std::ptr::null(),
                 );
             }
+        }
 
+        unsafe {
             // Render offscreen buffer.
-            FramebufferId::bind_default(FramebufferTarget::Framebuffer);
+            let _bound_fb = DrawReadFramebufferTarget::new(
+                &mut draw_framebuffer_slot,
+                &mut read_framebuffer_slot,
+            ).bind(&DEFAULT_FRAMEBUFFER_ID);
+
             // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
             // gl::ClearColor(0.0, 1.0, 0.0, 1.0);
             // gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::Disable(gl::DEPTH_TEST);
-            post_program.bind();
+            let _bound_program = program_slot.bind(&post_program);
             post_vao.bind();
-            gl::ActiveTexture(gl::TEXTURE0);
-            main_fb_tex.bind(TextureTarget::Texture2D);
+
+            texture_unit_slot
+                .activate(TextureUnit::TextureUnit0)
+                .texture_slot_2d
+                .target()
+                .bind(&main_fb_tex)
+                .persist();
+
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0 as GLint, 4 as GLsizei);
         }
 
