@@ -644,14 +644,14 @@ fn main() {
 
         // Process events.
         events_loop.poll_events(|event| {
-            use glutin::Event::*;
+            use glutin::Event;
             match event {
-                WindowEvent { event, .. } => {
-                    use glutin::WindowEvent::*;
-                    use glutin::ElementState::*;
+                Event::WindowEvent { event, .. } => {
+                    use glutin::WindowEvent;
+                    use glutin::ElementState;
                     match event {
-                        Closed => running = false,
-                        Resized(w, h) => {
+                        WindowEvent::CloseRequested => running = false,
+                        WindowEvent::Resized(w, h) => {
                             gl_window.resize(w, h);
                             viewport.update().width(w as GLsizei).height(h as GLsizei);
 
@@ -691,44 +691,42 @@ fn main() {
                                     1.0 / viewport.height() as f32,
                                 );
                         }
-
-                        KeyboardInput { input, .. } => {
-                            let pressed = if let Pressed = input.state {
-                                true
-                            } else {
-                                false
+                        WindowEvent::KeyboardInput { input, .. } => {
+                            let pressed = match input.state {
+                                ElementState::Pressed => true,
+                                ElementState::Released => false,
                             };
 
-                            use glutin::VirtualKeyCode::*;
+                            use glutin::VirtualKeyCode;
                             match input.virtual_keycode {
-                                Some(Escape) => {
+                                Some(VirtualKeyCode::Escape) => {
                                     if has_focus {
                                         running = false;
                                     }
                                 }
-                                Some(W) => move_forward = pressed,
-                                Some(S) => move_backward = pressed,
-                                Some(A) => move_left = pressed,
-                                Some(D) => move_right = pressed,
-                                Some(Q) => move_up = pressed,
-                                Some(Z) => move_down = pressed,
+                                Some(VirtualKeyCode::W) => move_forward = pressed,
+                                Some(VirtualKeyCode::S) => move_backward = pressed,
+                                Some(VirtualKeyCode::A) => move_left = pressed,
+                                Some(VirtualKeyCode::D) => move_right = pressed,
+                                Some(VirtualKeyCode::Q)=> move_up = pressed,
+                                Some(VirtualKeyCode::Z) => move_down = pressed,
                                 _ => (),
                             }
                         }
-                        Focused(state) => {
+                        WindowEvent::Focused(state) => {
                             has_focus = state;
                         }
                         _ => (),
                     }
                 }
-                DeviceEvent {
+                Event::DeviceEvent {
                     device_id, event, ..
                 } => {
-                    use glutin::DeviceEvent::*;
+                    use glutin::DeviceEvent;
                     match event {
-                        Added => println!("Added device {:?}", device_id),
-                        Removed => println!("Removed device {:?}", device_id),
-                        Motion { axis, value } => match axis {
+                        DeviceEvent::Added => println!("Added device {:?}", device_id),
+                        DeviceEvent::Removed => println!("Removed device {:?}", device_id),
+                        DeviceEvent::Motion { axis, value } => match axis {
                             0 => mouse_dx += value as f32,
                             1 => mouse_dy += value as f32,
                             3 => mouse_dscroll += value as f32,
