@@ -3,7 +3,7 @@ extern crate core;
 
 pub mod specialization;
 
-use core::nonzero::NonZero;
+use id::Id;
 use gl::types::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -18,11 +18,11 @@ pub enum ShaderKind {
 }
 
 #[derive(Debug)]
-pub struct ShaderId(NonZero<GLuint>);
+pub struct ShaderId(Id);
 
 impl ShaderId {
     pub fn new(kind: ShaderKind) -> Option<Self> {
-        NonZero::new(unsafe { gl::CreateShader(kind as GLenum) }).map(ShaderId)
+        Id::new(unsafe { gl::CreateShader(kind as GLenum) }).map(ShaderId)
     }
 
     #[inline]

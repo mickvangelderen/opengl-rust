@@ -3,7 +3,7 @@
 extern crate core;
 extern crate gl;
 
-use core::nonzero::NonZero;
+use id::Id;
 use gl::types::*;
 use std::marker::PhantomData;
 use renderbuffer::RenderbufferId;
@@ -32,7 +32,7 @@ impl MaybeDefaultFramebufferId for DefaultFramebufferId {
     }
 }
 
-pub struct FramebufferId(NonZero<GLuint>);
+pub struct FramebufferId(Id);
 
 impl FramebufferId {
     #[inline]
@@ -41,7 +41,7 @@ impl FramebufferId {
         unsafe {
             gl::GenFramebuffers(ids.len() as GLsizei, ids.as_mut_ptr());
         }
-        NonZero::new(ids[0]).map(FramebufferId)
+        Id::new(ids[0]).map(FramebufferId)
     }
 }
 

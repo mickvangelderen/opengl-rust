@@ -2,7 +2,7 @@ extern crate core;
 extern crate gl;
 
 use gl::types::*;
-use core::nonzero::NonZero;
+use id::Id;
 
 #[allow(unused)]
 #[repr(u32)]
@@ -24,7 +24,7 @@ pub enum BufferTarget {
 }
 
 #[derive(Debug)]
-pub struct VertexBufferId(NonZero<GLuint>);
+pub struct VertexBufferId(Id);
 
 impl VertexBufferId {
     pub unsafe fn as_uint(&self) -> GLuint {
@@ -32,7 +32,7 @@ impl VertexBufferId {
     }
 
     pub fn new() -> Option<Self> {
-        NonZero::new(unsafe {
+        Id::new(unsafe {
             let mut ids: [GLuint; 1] = [0];
             gl::GenBuffers(ids.len() as GLsizei, ids.as_mut_ptr());
             ids[0]

@@ -3,12 +3,12 @@
 extern crate core;
 extern crate gl;
 
-use core::nonzero::NonZero;
+use id::Id;
 use gl::types::*;
 use std::marker::PhantomData;
 use phantomdata::into_phantom_data;
 
-pub struct RenderbufferId(NonZero<GLuint>);
+pub struct RenderbufferId(Id);
 
 impl RenderbufferId {
     #[inline]
@@ -17,7 +17,7 @@ impl RenderbufferId {
         unsafe {
             gl::GenRenderbuffers(ids.len() as GLsizei, ids.as_mut_ptr());
         }
-        NonZero::new(ids[0]).map(RenderbufferId)
+        Id::new(ids[0]).map(RenderbufferId)
     }
 
     #[inline]

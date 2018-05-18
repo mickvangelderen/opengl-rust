@@ -11,6 +11,7 @@ extern crate image;
 #[macro_use(field_offset)]
 extern crate simple_field_offset;
 
+pub mod id;
 pub mod camera;
 pub mod phantomdata;
 pub mod shader;

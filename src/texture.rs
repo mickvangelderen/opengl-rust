@@ -1,18 +1,18 @@
 extern crate core;
 extern crate gl;
 
-use core::nonzero::NonZero;
+use id::Id;
 use gl::types::*;
 use std::marker::PhantomData;
 use phantomdata::into_phantom_data;
 
 #[derive(Debug)]
-pub struct TextureId(NonZero<GLuint>);
+pub struct TextureId(Id);
 
 impl TextureId {
     #[inline]
     pub fn new() -> Option<Self> {
-        NonZero::new(unsafe {
+        Id::new(unsafe {
             let mut ids: [GLuint; 1] = [0];
             gl::GenTextures(ids.len() as GLsizei, ids.as_mut_ptr());
             ids[0]

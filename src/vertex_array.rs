@@ -2,10 +2,10 @@ extern crate core;
 extern crate gl;
 
 use gl::types::*;
-use core::nonzero::NonZero;
+use id::Id;
 
 #[derive(Debug)]
-pub struct VertexArrayId(NonZero<GLuint>);
+pub struct VertexArrayId(Id);
 
 impl VertexArrayId {
     pub unsafe fn as_uint(&self) -> GLuint {
@@ -13,7 +13,7 @@ impl VertexArrayId {
     }
 
     pub fn new() -> Option<Self> {
-        NonZero::new(unsafe {
+        Id::new(unsafe {
             let mut ids: [GLuint; 1] = [0];
             gl::GenVertexArrays(ids.len() as GLsizei, ids.as_mut_ptr());
             ids[0]

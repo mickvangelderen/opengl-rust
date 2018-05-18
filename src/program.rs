@@ -1,7 +1,7 @@
 extern crate core;
 extern crate gl;
 
-use core::nonzero::NonZero;
+use id::Id;
 use gl::types::{GLchar, GLint, GLsizei, GLuint};
 use std::marker::PhantomData;
 use std::ffi::CStr;
@@ -9,11 +9,11 @@ use std::ffi::CStr;
 use shader::CompiledShaderId;
 
 #[derive(Debug)]
-pub struct ProgramId(NonZero<GLuint>);
+pub struct ProgramId(Id);
 
 impl ProgramId {
     pub fn new() -> Option<Self> {
-        NonZero::new(unsafe { gl::CreateProgram() }).map(ProgramId)
+        Id::new(unsafe { gl::CreateProgram() }).map(ProgramId)
     }
 
     pub unsafe fn as_uint(&self) -> GLuint {
